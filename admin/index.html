@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cash IO | Admin Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <div>
+        <h1>Cash IO Admin</h1>
+        <p class="subtitle">Operational overview · Demo UI</p>
+      </div>
+    </div>
+    <div class="admin-profile">
+      <div class="status-chip success">Online</div>
+      <div class="admin-name">Admin</div>
+      <div class="avatar">A</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- METRICS GRID -->
+    <section class="stats">
+      <article class="card stat-card">
+        <p class="label">Active Users</p>
+        <div class="stat-row">
+          <span id="userCount" class="stat-value">128</span>
+          <span class="pill pill-green">+12 today</span>
+        </div>
+      </article>
+      <article class="card stat-card">
+        <p class="label">Registered Agents</p>
+        <div class="stat-row">
+          <span id="agentCount" class="stat-value">34</span>
+          <span class="pill pill-blue">+3 new</span>
+        </div>
+      </article>
+      <article class="card stat-card">
+        <p class="label">Pending Approvals</p>
+        <div class="stat-row">
+          <span id="pendingCount" class="stat-value warning">3</span>
+          <span class="pill pill-amber">Review now</span>
+        </div>
+      </article>
+      <article class="card stat-card">
+        <p class="label">Today’s Transactions</p>
+        <div class="stat-row">
+          <span class="stat-value">₹4.2L</span>
+          <span class="pill pill-green">↑ steady</span>
+        </div>
+      </article>
+    </section>
+
+    <!-- SERVICE CONTROL -->
+    <section class="card service-card">
+      <div class="section-head">
+        <div>
+          <h2>Service Control</h2>
+          <p class="muted">Toggle platform availability (UI only)</p>
+        </div>
+        <div class="service-toggle">
+          <label class="switch">
+            <input type="checkbox" id="serviceToggle" checked />
+            <span class="slider"></span>
+          </label>
+          <span id="serviceStatus" class="status-chip info">Service Active</span>
+        </div>
+      </div>
+      <p class="note">* TODO: Wire to backend to start/stop services platform-wide.</p>
+    </section>
+
+    <!-- AGENT APPROVALS -->
+    <section class="card agents-card">
+      <div class="section-head">
+        <div>
+          <h2>Agent Approval Requests</h2>
+          <p class="muted">Review documents and approve/reject agents</p>
+        </div>
+        <div class="filters">
+          <span class="pill pill-blue">Pending</span>
+          <span class="pill pill-grey">Approved</span>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Profile</th>
+              <th>City</th>
+              <th>Documents</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Mukhtar Sayyad</td>
+              <td><button class="ghost" onclick="viewProfile()">Profile</button></td>
+              <td>Pune</td>
+              <td><button class="ghost" onclick="viewDocs()">View</button></td>
+              <td><span class="pill pill-amber">Pending</span></td>
+              <td class="action-cell">
+                <button class="approve" onclick="approveAgent()">Approve</button>
+                <button class="reject" onclick="rejectAgent()">Reject</button>
+              </td>
+            </tr>
+            <tr>
+              <td>Rahul Patil</td>
+              <td><button class="ghost" onclick="viewProfile()">Profile</button></td>
+              <td>Mumbai</td>
+              <td><button class="ghost" onclick="viewDocs()">View</button></td>
+              <td><span class="pill pill-amber">Pending</span></td>
+              <td class="action-cell">
+                <button class="approve" onclick="approveAgent()">Approve</button>
+                <button class="reject" onclick="rejectAgent()">Reject</button>
+              </td>
+            </tr>
+            <tr>
+              <td>Shreya Kulkarni</td>
+              <td><button class="ghost" onclick="viewProfile()">Profile</button></td>
+              <td>Nashik</td>
+              <td><button class="ghost" onclick="viewDocs()">View</button></td>
+              <td><span class="pill pill-blue">Reviewing</span></td>
+              <td class="action-cell">
+                <button class="approve" onclick="approveAgent()">Approve</button>
+                <button class="reject" onclick="rejectAgent()">Reject</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="note">* TODO: Connect approvals, document fetch, and audit logging to backend services.</p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

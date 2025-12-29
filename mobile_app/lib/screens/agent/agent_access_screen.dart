@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'agent_registration_screen.dart';
 import 'agent_login_screen.dart';
+import 'agent_home_screen.dart';
 
 class AgentAccessScreen extends StatelessWidget {
   const AgentAccessScreen({super.key});
@@ -28,6 +29,16 @@ class AgentAccessScreen extends StatelessWidget {
               },
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 52)),
               child: const Text('Register as Agent'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AgentHomeScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
+              child: const Text('Go to Agent Home (demo)'),
             ),
             const SizedBox(height: 16),
             Center(

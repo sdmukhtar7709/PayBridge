@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/custom_textfield.dart';
 import '../user/user_home_screen.dart';
+import '../agent/agent_access_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -48,8 +49,15 @@ class _LoginScreenState extends State<LoginScreen> {
     // AuthService.login(email, password);
 
     // Temporary demo navigation until backend is wired
+    // TODO: Route users vs agents after role-based auth response.
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const UserHomeScreen()),
+    );
+  }
+
+  void _goToAgentAccess() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AgentAccessScreen()),
     );
   }
 
@@ -108,6 +116,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text('Login'),
                 ),
 
+                const SizedBox(height: 12),
+               
+
                 // 🚧 Test-only shortcut to jump to user home
                 OutlinedButton(
                   
@@ -126,6 +137,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextButton(
                   onPressed: _goToRegister,
                   child: const Text("Don't have an account? Register"),
+                ),
+
+
+                 Column(
+                  children: [
+                    // const Text(
+                    //   'Want to earn with Cash IO?',
+                    //   style: TextStyle(fontSize: 13),
+                    // ),
+                    TextButton(
+                      onPressed: _goToAgentAccess,
+                      child: const Text('Join as Agent'),
+                    ),
+                  ],
                 ),
               ],
             ),

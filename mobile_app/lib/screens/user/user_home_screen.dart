@@ -2,6 +2,7 @@
 
 import '../agent/agent_registration_screen.dart';
 import '../agent/agent_access_screen.dart';
+import '../agent/agent_home_screen.dart';
 import 'upi_to_cash_screen.dart';
 import 'cash_to_upi_screen.dart';
 import 'user_profile_screen.dart';
@@ -81,6 +82,19 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             return;
           }
 
+          if (index == 4) {
+            Navigator.of(context)
+                .push(
+                  MaterialPageRoute(
+                    builder: (_) => const AgentHomeScreen(),
+                  ),
+                )
+                .then((_) {
+              if (mounted) setState(() => _currentIndex = 0);
+            });
+            return;
+          }
+
           setState(() => _currentIndex = index);
         },
         items: const [
@@ -88,6 +102,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Map'),
           BottomNavigationBarItem(icon: Icon(Icons.receipt), label: 'Transactions'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.verified_user), label: 'Agent'),
         ],
       ),
     );

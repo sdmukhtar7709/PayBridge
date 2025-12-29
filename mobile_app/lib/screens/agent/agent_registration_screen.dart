@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../auth/login_screen.dart';
+
 class AgentRegistrationScreen extends StatefulWidget {
   const AgentRegistrationScreen({super.key});
 
@@ -103,6 +105,19 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
                   minimumSize: const Size(double.infinity, 52),
                 ),
                 child: const Text('Submit / Apply as Agent'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: const Text('Logout'),
               ),
               const SizedBox(height: 12),
               const Text(
