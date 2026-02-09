@@ -3,7 +3,8 @@
 ## Project overview
 PayBridge is an in-progress, full‑stack prototype that explores a *cash–digital payment bridge*: helping users convert between UPI (or other digital transfers) and physical cash through nearby verified agents. The repository currently contains a Flutter mobile application (user and agent flows), a Node.js/Express backend API with a PostgreSQL database via Prisma, and a lightweight web-based admin UI.
 
-This project is being developed as a learning-focused, academic build: the emphasis is on clear architecture, traceable transactions, and practical engineering trade-offs rather than production readiness.
+
+This project is being developed as for learning and academic final year project that demonstrates full stack application using flutter build: the emphasis is on clear architecture, traceable transactions, and practical engineering trade-offs rather than production readiness.
 
 ## Problem statement
 In many local contexts, people frequently need to move value between digital payment systems (e.g., UPI) and cash. Common ad-hoc approaches (asking friends, visiting informal agents, or using unstructured cash handling) can be slow, inconsistent, and difficult to trust. From a systems perspective, the key challenges are:
