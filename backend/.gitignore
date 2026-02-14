@@ -1,0 +1,25 @@
+# Node / Backend / React Native
+node_modules/
+npm-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# React Native platforms
+android/
+ios/
+*.keystore
+*.jks
+*.apk
+*.aab
+expo/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Env
+.env
+.env.*
