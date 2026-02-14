@@ -3,6 +3,7 @@
 ## Project overview
 PayBridge is an in-progress, full‑stack prototype that explores a *cash–digital payment bridge*: helping users convert between UPI (or other digital transfers) and physical cash through nearby verified agents. The repository currently contains a Flutter mobile application (user and agent flows), a Node.js/Express backend API with a PostgreSQL database via Prisma, and a lightweight web-based admin UI.
 
+<<<<<<< HEAD
 This project is being developed as a learning-focused, academic build: the emphasis is on clear architecture, traceable transactions, and practical engineering trade-offs rather than production readiness.
 
 ## Problem statement
@@ -16,6 +17,22 @@ In many local contexts, people frequently need to move value between digital pay
 ## Objectives
 The current MVP objectives (from the project docs) are:
 
+=======
+
+This project is being developed as for learning and academic final year project that demonstrates full stack application using flutter build: the emphasis is on clear architecture, traceable transactions, and practical engineering trade-offs rather than production readiness.
+
+## Problem statement
+In many local contexts, people frequently need to move value between digital payment systems (e.g., UPI) and cash. Common ad-hoc approaches (asking friends, visiting informal agents, or using unstructured cash handling) can be slow, inconsistent, and difficult to trust. From a systems perspective, the key challenges are:
+
+- **Discovery**: finding a nearby agent who is available and can handle a requested amount.
+- **Trust and verification**: ensuring both parties can confirm the exchange happened correctly.
+- **Auditability**: recording transactions so disputes can be handled with evidence.
+- **Operational control**: allowing an administrator to approve or restrict agent access.
+
+## Objectives
+The current MVP objectives (from the project docs) are:
+
+>>>>>>> c4804b91cb06b80c4ffa5559be8edec09c0d3d54
 - Enable users to request **cash-in** (deposit cash) and **cash-out** (receive cash).
 - Support **nearby agent discovery** (location-based matching/search).
 - Provide **secure verification** (OTP/QR-style confirmation) and durable **transaction logging**.
