@@ -286,7 +286,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        ..._liveRequests.map(_requestCard).toList(),
+        ..._liveRequests.map(_requestCard),
         // TODO: Backend will handle approve/reject request actions
       ],
     );

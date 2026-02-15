@@ -105,7 +105,7 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _distance,
+            initialValue: _distance,
             items: options
                 .map((opt) => DropdownMenuItem(
                       value: opt,

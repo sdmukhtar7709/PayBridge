@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../auth/login_screen.dart';
+import 'agent_login_screen.dart';
 
 class AgentRegistrationScreen extends StatefulWidget {
   const AgentRegistrationScreen({super.key});
@@ -110,7 +110,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
               OutlinedButton(
                 onPressed: () {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    MaterialPageRoute(builder: (_) => const AgentLoginScreen()),
                     (route) => false,
                   );
                 },
@@ -162,7 +162,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
