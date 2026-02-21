@@ -1,16 +1,9 @@
-import { app } from "./app.js";
-import { env } from "./config/env.js";
-import logger from "./lib/logger.js";
+import { app } from "./app";
+import { env } from "./config/env";
 
-const PORT = Number(env.PORT) || 3000;
-const server = app.listen(PORT, () => {
-  logger.info(`API running on port ${PORT}`);
-});
+const port = env.port;
 
-server.on("error", (err: any) => {
-  if (err?.code === "EADDRINUSE") {
-    logger.error(`Port ${PORT} is already in use`);
-    process.exit(1);
-  }
-  logger.error(err);
+app.listen(port, () => {
+  
+  console.log(`API listening on http://localhost:${port}`);
 });

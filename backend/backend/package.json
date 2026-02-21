@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --watch src --ext ts,js,json --exec \"node --loader ts-node/esm --experimental-specifier-resolution=node src/index.ts\"",
+    "dev": "nodemon --watch src --exec \"node --loader ts-node/esm --experimental-specifier-resolution=node src/index.ts\"",
     "build": "tsc -p .",
     "start": "node dist/index.js",
     "test": "vitest run",
@@ -20,7 +20,7 @@
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",
     "@prisma/client": "^5.22.0",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -47,13 +47,13 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@types/twilio": "^3.19.2",
     "nodemon": "^3.1.0",
-    "prisma": "^7.2.0",
+    "prisma": "^5.22.0",
     "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.18"
   },
   "prisma": {
-    "seed": "ts-node --transpile-only prisma/seed.ts"
+    "seed": "ts-node --transpile-only --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   }
 }

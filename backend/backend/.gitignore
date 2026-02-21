@@ -1,5 +1,12 @@
 node_modules
 # Keep environment variables out of version control
 .env
+.env.*.local
+.env.local
 
 /src/generated/prisma
+# Ensure generated Prisma client (or generated typing) is ignored.
+
+/npm-debug.log*
+/*.log
+# ...existing patterns if you add more...

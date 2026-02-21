@@ -1,10 +1,11 @@
 generator client {
   provider = "prisma-client-js"
-  seed = "ts-node --transpile-only prisma/seed.ts"
+  seed     = "ts-node --transpile-only prisma/seed.ts"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum TransactionType {
@@ -28,18 +29,18 @@ enum TransactionStatus {
 
 model User {
   refreshTokens RefreshToken[]
-  id           String   @id @default(uuid())
-  name         String
-  phone        String?
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  role UserRole @default(user) 
-  accounts   Account[]
-  categories Category[]
-    agentProfile AgentProfile?
+  id            String         @id @default(uuid())
+  name          String
+  phone         String?
+  email         String         @unique
+  passwordHash  String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  role         UserRole      @default(user)
+  accounts     Account[]
+  categories   Category[]
+  agentProfile AgentProfile?
 }
 
 model Account {
@@ -53,32 +54,32 @@ model Account {
   userId String
 
   transactions      Transaction[]
-  receivedTransfers Transaction[] @relation("TransferToAccount") // <-- ADD THIS LINE
+  receivedTransfers Transaction[] @relation("TransferToAccount")
 
   @@index([userId])
 }
 
 model AgentProfile {
-  id          String   @id @default(uuid())
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String   @unique
-  isVerified  Boolean  @default(false)
-  isBanned    Boolean  @default(false)
-  available   Boolean  @default(false)
-  cashLimit   Decimal  @db.Decimal(14, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String   @unique
+  isVerified   Boolean  @default(false)
+  isBanned     Boolean  @default(false)
+  available    Boolean  @default(false)
+  cashLimit    Decimal  @db.Decimal(14, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   locationName String?
   latitude     Float?
   longitude    Float?
 }
 
 model Category {
-  id        String   @id @default(uuid())
+  id        String          @id @default(uuid())
   name      String
   type      TransactionType
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   user   User   @relation(fields: [userId], references: [id])
   userId String
@@ -90,13 +91,13 @@ model Category {
 }
 
 model Transaction {
-  id          String          @id @default(uuid())
+  id          String            @id @default(uuid())
   type        TransactionType
-  amount      Decimal         @db.Decimal(14, 2)
+  amount      Decimal           @db.Decimal(14, 2)
   description String?
-  occurredAt  DateTime        @default(now())
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  occurredAt  DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   status      TransactionStatus @default(PENDING)
 
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -114,27 +115,27 @@ model Transaction {
 }
 
 model RefreshToken {
-  id         Int      @id @default(autoincrement())
-  token      String   @unique
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  createdAt  DateTime @default(now())
+  id        Int       @id @default(autoincrement())
+  token     String    @unique
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model AgentTransaction {
-  id          String   @id @default(uuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  status      String   // "pending" | "confirmed" | "cancelled"
-  amount      Int
+  status String // "pending" | "confirmed" | "cancelled"
+  amount Int
 
-  userId      String   // requester (customer)
-  agentId     String   // agentProfile.id
+  userId  String // requester (customer)
+  agentId String // agentProfile.id
 
-  otp         String   // for confirmation
+  otp         String
   otpExpires  DateTime?
   completedAt DateTime?
 }

@@ -1,15 +1,18 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:16
+    container_name: cash-platform-postgres
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: cash_user
+      POSTGRES_PASSWORD: cash_password
+      POSTGRES_DB: cash_db
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: cash_platform
     volumes:
       - db_data:/var/lib/postgresql/data
 
 volumes:
-  db_data:
+  db_data: {}
