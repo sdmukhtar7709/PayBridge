@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../widgets/custom_textfield.dart';
+import '../../services/profile_photo_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -21,7 +22,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _addressController = TextEditingController(text: 'Wagholi, Pune');
 
   final ImagePicker _picker = ImagePicker();
+  final ProfilePhotoService _photoService = ProfilePhotoService();
   XFile? _pickedImage;
+  File? _savedPhotoFile;
 
   String _selectedGender = 'Male';
   String _selectedMaritalStatus = 'Single';
@@ -35,6 +38,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _ageController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedPhoto();
   }
 
   @override
@@ -71,31 +80,52 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     Row(
                       children: [
-                        CircleAvatar(
-                          radius: 34,
-                          backgroundColor: const Color(0xffe0f2fe),
-                          backgroundImage: _pickedImage != null ? FileImage(File(_pickedImage!.path)) : null,
-                          child: _pickedImage == null
-                              ? const Icon(Icons.person, size: 34, color: Colors.blue)
-                              : null,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        InkWell(
+                          onTap: _showImagePicker,
+                          borderRadius: BorderRadius.circular(34),
+                          child: Stack(
+                            alignment: Alignment.bottomRight,
                             children: [
-                              const Text(
-                                'Profile photo',
-                                style: TextStyle(fontWeight: FontWeight.w600),
+                              CircleAvatar(
+                                radius: 34,
+                                backgroundColor: const Color(0xffe0f2fe),
+                                backgroundImage: _currentPhotoFile != null ? FileImage(_currentPhotoFile!) : null,
+                                child: _currentPhotoFile == null
+                                    ? const Icon(Icons.person, size: 34, color: Colors.blue)
+                                    : null,
                               ),
-                              const SizedBox(height: 6),
-                              OutlinedButton.icon(
-                                onPressed: _showImagePicker,
-                                icon: const Icon(Icons.upload_file),
-                                label: const Text('Upload new photo'),
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.edit, size: 14, color: Colors.blue),
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(width: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Profile photo',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 6),
+                            OutlinedButton.icon(
+                              onPressed: _showImagePicker,
+                              icon: const Icon(Icons.upload_file),
+                              label: const Text('Upload new photo'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -197,6 +227,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  Future<void> _persistPhotoPath(String path) async {
+    await _photoService.savePath(path);
+    _savedPhotoFile = File(path);
+  }
+
+  Future<void> _loadSavedPhoto() async {
+    final file = await _photoService.loadPhotoFile();
+    if (file != null && mounted) {
+      setState(() => _savedPhotoFile = file);
+    }
+  }
+
+  File? get _currentPhotoFile {
+    if (_pickedImage != null) return File(_pickedImage!.path);
+    if (_savedPhotoFile != null) return _savedPhotoFile;
+    return null;
+  }
+
   Widget _buildDropdown({
     required String label,
     required String value,
@@ -261,6 +309,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final picked = await _picker.pickImage(source: source, imageQuality: 75);
       if (picked != null) {
         setState(() => _pickedImage = picked);
+        await _persistPhotoPath(picked.path);
         // TODO: Upload picked image file to backend storage here.
       }
     } catch (e) {

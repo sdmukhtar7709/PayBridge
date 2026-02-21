@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:io';
+
+import 'package:flutter/material.dart';
 
 import '../agent/agent_access_screen.dart';
 import '../agent/agent_home_screen.dart';
@@ -6,6 +8,7 @@ import 'upi_to_cash_screen.dart';
 import 'cash_to_upi_screen.dart';
 import 'user_profile_screen.dart';
 import 'transactions_screen.dart';
+import '../../services/profile_photo_service.dart';
 
 /// =======================================================
 /// USER HOME SCREEN
@@ -22,6 +25,21 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   int _currentIndex = 0; // Track selected tab locally.
   bool _useCurrentLocation = false;
   final String _cityLabel = 'Wagholi, Pune';
+  File? _photoFile;
+  final ProfilePhotoService _photoService = ProfilePhotoService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPhoto();
+  }
+
+  Future<void> _loadPhoto() async {
+    final file = await _photoService.loadPhotoFile();
+    if (file != null && mounted) {
+      setState(() => _photoFile = file);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +94,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                   ),
                 )
                 .then((_) {
-              if (mounted) setState(() => _currentIndex = 0);
+              if (mounted) {
+                _loadPhoto();
+                setState(() => _currentIndex = 0);
+              }
             });
             return;
           }
@@ -117,14 +138,19 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           children: [
             GestureDetector(
               onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const UserProfileScreen()),
-                );
+                Navigator.of(context)
+                    .push(
+                      MaterialPageRoute(builder: (_) => const UserProfileScreen()),
+                    )
+                    .then((_) => _loadPhoto());
               },
-              child: const CircleAvatar(
+              child: CircleAvatar(
                 radius: 22,
                 backgroundColor: Colors.blue,
-                child: Icon(Icons.person, color: Colors.white),
+                backgroundImage: _photoFile != null ? FileImage(_photoFile!) : null,
+                child: _photoFile == null
+                    ? const Icon(Icons.person, color: Colors.white)
+                    : null,
               ),
             ),
             const SizedBox(width: 12),

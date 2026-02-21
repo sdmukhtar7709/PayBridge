@@ -1,25 +1,32 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 class ProfileHeader extends StatelessWidget {
   final String name;
   final String subtitle;
   final VoidCallback onManageProfile;
+  final File? photoFile;
 
   const ProfileHeader({
     super.key,
     required this.name,
     required this.subtitle,
     required this.onManageProfile,
+    this.photoFile,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 46,
-          backgroundColor: Color(0xffe0f2fe),
-          child: Icon(Icons.person, size: 48, color: Colors.blue),
+          backgroundColor: const Color(0xffe0f2fe),
+          backgroundImage: photoFile != null ? FileImage(photoFile!) : null,
+          child: photoFile == null
+              ? const Icon(Icons.person, size: 48, color: Colors.blue)
+              : null,
         ),
         const SizedBox(height: 16),
         Row(
@@ -50,7 +57,7 @@ class ProfileHeader extends StatelessWidget {
               child: const Text(
                 'Manage Profile',
                 style: TextStyle(
-                  color: Colors.blue,
+                  color: Color.fromARGB(255, 0, 103, 187),
                   fontWeight: FontWeight.w600,
                 ),
               ),
