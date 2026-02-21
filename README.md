@@ -1,94 +1,108 @@
-# PayBridge
+# Cash IO (WIP)
 
-## Project overview
-PayBridge is an in-progress, full‑stack prototype that explores a *cash–digital payment bridge*: helping users convert between UPI (or other digital transfers) and physical cash through nearby verified agents. The repository currently contains a Flutter mobile application (user and agent flows), a Node.js/Express backend API with a PostgreSQL database via Prisma, and a lightweight web-based admin UI.
+Cash IO is an in-progress full-stack project for cash ↔ digital transaction workflows.
 
-<<<<<<< HEAD
-This project is being developed as a learning-focused, academic build: the emphasis is on clear architecture, traceable transactions, and practical engineering trade-offs rather than production readiness.
+This repository currently contains:
+- `mobile_app/` — Flutter app (user + agent flows)
+- `backend/backend/` — Node.js + TypeScript API (Express + Prisma + PostgreSQL)
+- `admin/` — static admin dashboard UI (HTML/CSS/JS)
 
-## Problem statement
-In many local contexts, people frequently need to move value between digital payment systems (e.g., UPI) and cash. Common ad-hoc approaches (asking friends, visiting informal agents, or using unstructured cash handling) can be slow, inconsistent, and difficult to trust. From a systems perspective, the key challenges are:
+## Status
 
-- **Discovery**: finding a nearby agent who is available and can handle a requested amount.
-- **Trust and verification**: ensuring both parties can confirm the exchange happened correctly.
-- **Auditability**: recording transactions so disputes can be handled with evidence.
-- **Operational control**: allowing an administrator to approve or restrict agent access.
+🚧 **Work in Progress**
 
-## Objectives
-The current MVP objectives (from the project docs) are:
+This project is not complete yet. Core modules are being built and integrated.
 
-=======
+## Current stack
 
-This project is being developed as for learning and academic final year project that demonstrates full stack application using flutter build: the emphasis is on clear architecture, traceable transactions, and practical engineering trade-offs rather than production readiness.
+- Flutter (Dart)
+- Node.js + Express + TypeScript
+- Prisma ORM
+- PostgreSQL (Docker)
+- Vitest + Supertest (backend tests)
 
-## Problem statement
-In many local contexts, people frequently need to move value between digital payment systems (e.g., UPI) and cash. Common ad-hoc approaches (asking friends, visiting informal agents, or using unstructured cash handling) can be slow, inconsistent, and difficult to trust. From a systems perspective, the key challenges are:
+## Quick start
 
-- **Discovery**: finding a nearby agent who is available and can handle a requested amount.
-- **Trust and verification**: ensuring both parties can confirm the exchange happened correctly.
-- **Auditability**: recording transactions so disputes can be handled with evidence.
-- **Operational control**: allowing an administrator to approve or restrict agent access.
+### 1) Backend API
 
-## Objectives
-The current MVP objectives (from the project docs) are:
+From project root:
 
->>>>>>> c4804b91cb06b80c4ffa5559be8edec09c0d3d54
-- Enable users to request **cash-in** (deposit cash) and **cash-out** (receive cash).
-- Support **nearby agent discovery** (location-based matching/search).
-- Provide **secure verification** (OTP/QR-style confirmation) and durable **transaction logging**.
-- Offer **basic admin controls** for approving or banning agents.
+```bash
+cd backend/backend
+npm install
+```
 
-## Current features
-What is implemented in this repository today (as of January 2026) includes:
+Create `.env` (or copy from `.env.example` if present) and set at minimum:
 
-- **Backend API (Node.js/Express + TypeScript)**
-  - Authentication endpoints for **signup** and **login** (JWT-based).
-  - **Health** endpoint with database connectivity check.
-  - Transaction and account primitives:
-    - Create and list transactions (with basic filtering).
-    - Transfer flow between user-owned accounts (atomic update via database transaction).
-  - Agent-specific transaction handling:
-    - Create agent-handled transactions (cash in/out/transfer) with a **PENDING** status.
-    - Approve/reject flow that updates balances atomically when approved.
-  - Supporting infrastructure endpoints (present in routes): docs, metrics, versioning, maps proxy, categories, and agent/admin route groups.
-  - Input validation patterns using schema validation.
-  - Automated tests for selected API behaviours (Vitest).
+```env
+DATABASE_URL=postgresql://cash_user:cash_password@localhost:5432/cash_db
+JWT_SECRET=super-secret-dev
+PORT=4000
+```
 
-- **Mobile app (Flutter/Dart)**
-  - Auth UI: login and registration screens.
-  - User-facing screens for profile/settings and transaction-related flows (including UPI↔cash screens).
-  - Agent-facing screens for access/login, home, and registration.
+Start PostgreSQL with Docker:
 
-- **Admin UI (HTML/CSS/JS)**
-  - A basic admin interface with **demo-only** controls (e.g., approve/reject agent, toggle service status). Integration with backend APIs is marked as TODO.
+```bash
+docker-compose up -d
+```
 
-Notes on scope honesty:
-- Some repository docs refer to **React Native** as the mobile client; the current implementation in this workspace is **Flutter**.
-- Several front-end/admin actions are currently UI/demo placeholders and may not be fully wired to backend endpoints.
+Run migrations and start API:
 
-## Tech stack
-- **Mobile**: Flutter, Dart
-- **Backend**: Node.js, Express, TypeScript
-- **Database/ORM**: PostgreSQL, Prisma
-- **Validation**: Zod
-- **Auth**: JSON Web Tokens (JWT)
-- **Testing**: Vitest, Supertest
-- **Observability/Docs**: Prometheus client (`prom-client`), Swagger UI
-- **Maps/Geo utilities**: Google Maps services client
-- **Admin UI**: HTML, CSS, vanilla JavaScript
-- **Tooling/Infra (local dev)**: Docker Compose
+```bash
+npx prisma migrate dev
+npm run dev
+```
 
-## Project status
-**In Progress.**
+Health check:
 
-The system represents an evolving MVP prototype. Core backend building blocks (auth, database, transaction flows, agent status updates) exist, while broader product concerns—complete UI/API integration, hardened security, full agent verification/KYC processes, production deployment, and comprehensive UX validation—remain ongoing work.
+```bash
+curl http://localhost:4000/health
+```
 
-## Learning outcomes
-This project is intended to develop practical skills in:
+### 2) Mobile app (Flutter)
 
-- Designing an MVP from requirements (charter/scope/user stories) and mapping them to implementable modules.
-- Implementing and testing REST APIs with role-based access control and input validation.
-- Data modelling and transactional integrity (atomic balance updates; state transitions).
-- Mobile app development for multi-role flows (user vs agent) and basic settings UX.
-- Observability and documentation practices (metrics endpoints, API docs scaffolding).
-- Working with real-world trade-offs: incomplete integration, evolving scope, and iterative refactoring.
+From project root:
+
+```bash
+cd mobile_app
+flutter pub get
+flutter run
+```
+
+### 3) Admin UI
+
+The admin panel is static for now.
+
+Open `admin/index.html` directly in the browser, or use VS Code Live Server.
+
+## Backend scripts
+
+Inside `backend/backend`:
+
+- `npm run dev` — start development server
+- `npm run build` — compile TypeScript
+- `npm run start` — run compiled app
+- `npm test` — run tests
+- `npm run check` — type check
+
+## Repository structure
+
+```text
+Cash_IO/
+├─ admin/
+├─ backend/
+│  └─ backend/
+├─ mobile_app/
+└─ README.md
+```
+
+## Planned next work
+
+- Complete end-to-end API integration with mobile and admin
+- Improve role-based flows (user/agent/admin)
+- Harden validation, auth, and error handling
+- Add more automated tests and deployment docs
+
+## Note
+
+Some modules/screens are partially implemented and may change as development continues.

@@ -42,7 +42,7 @@ class UpiCard extends StatelessWidget {
               children: [
                 const Text(
                   'UPI ID',
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                  style: TextStyle(fontSize: 13, color: Color.fromARGB(136, 7, 6, 6)),
                 ),
                 Text(
                   upiId,

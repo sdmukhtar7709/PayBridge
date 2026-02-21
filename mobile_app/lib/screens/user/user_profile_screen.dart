@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../auth/login_screen.dart';
@@ -6,19 +8,40 @@ import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'language_screen.dart';
 import 'theme_screen.dart';
+import '../../services/profile_photo_service.dart';
 import '../../widgets/profile_header.dart';
 import '../../widgets/settings_section.dart';
 import '../../widgets/settings_tile.dart';
 import '../../widgets/upi_card.dart';
 
-class UserProfileScreen extends StatelessWidget {
+class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    const profileName = 'Muktar Sayyad';
-    const upiId = '770968@ybl';
+  State<UserProfileScreen> createState() => _UserProfileScreenState();
+}
 
+class _UserProfileScreenState extends State<UserProfileScreen> {
+  final String _profileName = 'Muktar Sayyad';
+  final String _upiId = '770968@ybl';
+  File? _photoFile;
+  final ProfilePhotoService _photoService = ProfilePhotoService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPhoto();
+  }
+
+  Future<void> _loadPhoto() async {
+    final file = await _photoService.loadPhotoFile();
+    if (file != null && mounted) {
+      setState(() => _photoFile = file);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xfff6f9ff),
       appBar: AppBar(
@@ -41,22 +64,25 @@ class UserProfileScreen extends StatelessWidget {
                   children: [
                     const SizedBox(height: 12),
                     ProfileHeader(
-                      name: profileName,
+                      name: _profileName,
                       subtitle: 'Personal account',
+                      photoFile: _photoFile,
                       onManageProfile: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const EditProfileScreen(),
-                          ),
-                        );
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute(
+                                builder: (_) => const EditProfileScreen(),
+                              ),
+                            )
+                            .then((_) => _loadPhoto());
                       },
                     ),
                     const SizedBox(height: 20),
                     UpiCard(
-                      upiId: upiId,
+                      upiId: _upiId,
                       onCopy: () {
                         // TODO: Hook into clipboard and backend for sharing if needed.
-                        debugPrint('Copy UPI ID: $upiId');
+                        debugPrint('Copy UPI ID: $_upiId');
                       },
                     ),
                     const SizedBox(height: 20),
