@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../agent/agent_login_screen.dart';
+import '../../services/auth_service.dart';
 import '../user/user_home_screen.dart';
 import 'register_screen.dart';
 
@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _identifierController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoggingIn = false;
@@ -21,31 +21,38 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _identifierController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    final identifier = _identifierController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (identifier.isEmpty || password.isEmpty) {
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both email/phone and password.')),
+        const SnackBar(content: Text('Please enter both email and password.')),
       );
       return;
     }
 
     setState(() => _isLoggingIn = true);
 
-    // TODO: Replace with backend authentication + token handling.
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    try {
+      await AuthService.login(email, password);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoggingIn = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+      return;
+    }
 
     if (!mounted) return;
     setState(() => _isLoggingIn = false);
 
-    // Dev shortcut: go straight to user home after mock login.
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const UserHomeScreen()),
@@ -89,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 22),
                   TextField(
-                    controller: _identifierController,
+                    controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
                       hintText: 'Email',
@@ -179,15 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     },
                     child: const Text("Don't have an account? Register"),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const AgentLoginScreen()),
-                      );
-                    },
-                    child: const Text('Join as Agent'),
                   ),
                 ],
               ),

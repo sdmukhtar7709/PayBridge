@@ -3,37 +3,28 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Simple auth helper to call the Node backend and keep the JWT.
-/// Uses 10.0.2.2 for Android emulators; change to localhost when running Flutter web/desktop.
 class AuthService {
-  static const String _baseUrl = 'http://10.0.2.2:3000';
-  static const String _authPath = '$_baseUrl/auth';
+  static const String _apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.57.70.152:4000',
+  );
+  static const String _authPath = '$_apiBaseUrl/auth';
   static const String _tokenKey = 'auth_token';
 
-  static Future<_AuthResult> register({
-    required String fullName,
-    required String email,
-    required String phoneNumber,
-    required String password,
-  }) async {
+  static Future<AuthResult> register(String email, String password) async {
     final res = await _post(
-      '$_authPath/signup',
+      '$_authPath/register',
       {
-        'fullName': fullName,
         'email': email,
-        'phoneNumber': phoneNumber,
         'password': password,
       },
     );
-    final result = _AuthResult.fromJson(res);
+    final result = AuthResult.fromJson(res);
     await _saveToken(result.token);
     return result;
   }
 
-  static Future<_AuthResult> login({
-    required String email,
-    required String password,
-  }) async {
+  static Future<AuthResult> login(String email, String password) async {
     final res = await _post(
       '$_authPath/login',
       {
@@ -41,30 +32,13 @@ class AuthService {
         'password': password,
       },
     );
-    final result = _AuthResult.fromJson(res);
+    final result = AuthResult.fromJson(res);
     await _saveToken(result.token);
     return result;
   }
 
-  static Future<_User?> fetchProfile() async {
-    final token = await _getToken();
-    if (token == null) return null;
-
-    final response = await http.get(
-      Uri.parse('$_authPath/me'),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    final body = _decodeBody(response);
-    if (response.statusCode != 200) {
-      // Clear bad token to avoid loops.
-      await clearToken();
-      throw Exception(body['error'] ?? 'Unable to load profile');
-    }
-
-    return _User.fromJson(body['user']);
+  static Future<String?> getToken() async {
+    return _getToken();
   }
 
   static Future<void> clearToken() async {
@@ -105,39 +79,40 @@ class AuthService {
   }
 }
 
-class _AuthResult {
+class AuthResult {
   final String token;
-  final _User user;
+  final AuthUser user;
 
-  _AuthResult({required this.token, required this.user});
+  AuthResult({required this.token, required this.user});
 
-  factory _AuthResult.fromJson(Map<String, dynamic> json) {
-    return _AuthResult(
-      token: json['token'] as String,
-      user: _User.fromJson(json['user'] as Map<String, dynamic>),
+  factory AuthResult.fromJson(Map<String, dynamic> json) {
+    final token = (json['token'] ?? json['accessToken'] ?? '') as String;
+    return AuthResult(
+      token: token,
+      user: AuthUser.fromJson((json['user'] ?? <String, dynamic>{}) as Map<String, dynamic>),
     );
   }
 }
 
-class _User {
+class AuthUser {
   final String id;
-  final String fullName;
+  final String name;
   final String email;
-  final String phoneNumber;
+  final String? role;
 
-  _User({
+  AuthUser({
     required this.id,
-    required this.fullName,
+    required this.name,
     required this.email,
-    required this.phoneNumber,
+    this.role,
   });
 
-  factory _User.fromJson(Map<String, dynamic> json) {
-    return _User(
+  factory AuthUser.fromJson(Map<String, dynamic> json) {
+    return AuthUser(
       id: (json['id'] ?? json['_id'] ?? '') as String,
-      fullName: json['fullName'] as String,
-      email: json['email'] as String,
-      phoneNumber: json['phoneNumber'] as String,
+      name: (json['name'] ?? '') as String,
+      email: (json['email'] ?? '') as String,
+      role: json['role'] as String?,
     );
   }
 }
