@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
-import '../user/user_home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -11,7 +11,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmController = TextEditingController();
@@ -22,7 +21,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -30,12 +28,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
-    final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirm = _confirmController.text;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
+    if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields.')),
       );
@@ -51,15 +48,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isRegistering = true);
 
-    // TODO: Replace with backend registration + verification flow.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    try {
+      await AuthService.register(email, password);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isRegistering = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+      return;
+    }
 
     if (!mounted) return;
     setState(() => _isRegistering = false);
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const UserHomeScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 
@@ -100,15 +105,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 22),
                   _pillField(
-                    controller: _nameController,
-                    hint: 'Full name',
-                    icon: Icons.person_outline,
-                    keyboardType: TextInputType.name,
-                  ),
-                  const SizedBox(height: 14),
-                  _pillField(
                     controller: _emailController,
-                    hint: 'Email or phone',
+                    hint: 'Email',
                     icon: Icons.mail_outline,
                     keyboardType: TextInputType.emailAddress,
                   ),
@@ -157,16 +155,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       );
                     },
                     child: const Text('Already have an account? Login'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const UserHomeScreen()),
-                      );
-                    },
-                    child: const Text('Skip to User Home (dev)'),
                   ),
                 ],
               ),
