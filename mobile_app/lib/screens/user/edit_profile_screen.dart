@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../services/user_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../services/profile_photo_service.dart';
 
@@ -14,17 +17,20 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _firstNameController = TextEditingController(text: 'Muktar');
-  final _lastNameController = TextEditingController(text: 'Sayyad');
-  final _mobileController = TextEditingController(text: '+91 7709685469');
-  final _emailController = TextEditingController(text: 'muktar.sayyad@example.com');
-  final _ageController = TextEditingController(text: '22');
-  final _addressController = TextEditingController(text: 'Wagholi, Pune');
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _mobileController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _addressController = TextEditingController();
 
   final ImagePicker _picker = ImagePicker();
   final ProfilePhotoService _photoService = ProfilePhotoService();
+  final UserService _userService = UserService();
   XFile? _pickedImage;
   File? _savedPhotoFile;
+  String? _profileImageData;
+  bool _isLoadingProfile = false;
+  bool _isSaving = false;
 
   String _selectedGender = 'Male';
   String _selectedMaritalStatus = 'Single';
@@ -34,7 +40,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _mobileController.dispose();
-    _emailController.dispose();
     _ageController.dispose();
     _addressController.dispose();
     super.dispose();
@@ -44,6 +49,52 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     _loadSavedPhoto();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isLoadingProfile = true);
+    try {
+      final profile = await _userService.getProfile();
+      if (!mounted) return;
+
+      setState(() {
+        _firstNameController.text = profile.firstName ?? '';
+        _lastNameController.text = profile.lastName ?? '';
+        _mobileController.text = profile.phone ?? '';
+        _ageController.text = profile.age?.toString() ?? '';
+        _addressController.text = profile.address ?? '';
+
+        const genders = ['Male', 'Female', 'Other'];
+        const maritalStatuses = ['Single', 'Married', 'Other'];
+
+        _selectedGender = genders.contains(profile.gender) ? profile.gender! : 'Male';
+        _selectedMaritalStatus = maritalStatuses.contains(profile.maritalStatus)
+            ? profile.maritalStatus!
+            : 'Single';
+      });
+
+      final profileImagePath = profile.profileImage;
+      if (profileImagePath != null && profileImagePath.isNotEmpty) {
+        final file = File(profileImagePath);
+        if (await file.exists()) {
+          await _persistPhotoPath(profileImagePath);
+          if (!mounted) return;
+          setState(() => _savedPhotoFile = file);
+        } else {
+          setState(() => _profileImageData = profileImagePath);
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingProfile = false);
+      }
+    }
   }
 
   @override
@@ -69,7 +120,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -78,6 +129,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_isLoadingProfile)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: LinearProgressIndicator(),
+                      ),
                     Row(
                       children: [
                         InkWell(
@@ -89,8 +145,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               CircleAvatar(
                                 radius: 34,
                                 backgroundColor: const Color(0xffe0f2fe),
-                                backgroundImage: _currentPhotoFile != null ? FileImage(_currentPhotoFile!) : null,
-                                child: _currentPhotoFile == null
+                                backgroundImage: _currentPhotoFile != null
+                                    ? FileImage(_currentPhotoFile!)
+                                    : (_currentPhotoBytes != null ? MemoryImage(_currentPhotoBytes!) : null),
+                                child: _currentPhotoFile == null && _currentPhotoBytes == null
                                     ? const Icon(Icons.person, size: 34, color: Colors.blue)
                                     : null,
                               ),
@@ -101,7 +159,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
+                                      color: Colors.black.withValues(alpha: 0.1),
                                       blurRadius: 4,
                                     ),
                                   ],
@@ -150,12 +208,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       controller: _mobileController,
                       keyboardType: TextInputType.phone,
                     ),
-                    CustomTextField(
-                      hint: 'Email',
-                      icon: Icons.email,
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
                     Row(
                       children: [
                         Expanded(
@@ -200,21 +252,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       textCapitalization: TextCapitalization.sentences,
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Save changes to sync with your account. API wiring can be added in this button handler.',
-                      style: TextStyle(color: Colors.black54, height: 1.4),
-                    ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
                     ElevatedButton(
-                      onPressed: _handleSave,
+                      onPressed: _isSaving ? null : _handleSave,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 52),
                         backgroundColor: Colors.blue,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text(
-                        'Save Changes',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      child: Text(
+                        _isSaving ? 'Saving...' : 'Save Changes',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -243,6 +291,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_pickedImage != null) return File(_pickedImage!.path);
     if (_savedPhotoFile != null) return _savedPhotoFile;
     return null;
+  }
+
+  Uint8List? get _currentPhotoBytes {
+    if (_profileImageData == null || _profileImageData!.trim().isEmpty) return null;
+    final raw = _profileImageData!.trim();
+    final base64Part = raw.startsWith('data:image') && raw.contains(',')
+        ? raw.substring(raw.indexOf(',') + 1)
+        : raw;
+    try {
+      return base64Decode(base64Part);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> _toDataUri(XFile picked) async {
+    final bytes = await picked.readAsBytes();
+    final encoded = base64Encode(bytes);
+    final extension = picked.path.split('.').last.toLowerCase();
+    final mimeType = switch (extension) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+    return 'data:$mimeType;base64,$encoded';
   }
 
   Widget _buildDropdown({
@@ -308,11 +381,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final picked = await _picker.pickImage(source: source, imageQuality: 75);
       if (picked != null) {
-        setState(() => _pickedImage = picked);
+        final imageData = await _toDataUri(picked);
+        setState(() {
+          _pickedImage = picked;
+          _profileImageData = imageData;
+        });
         await _persistPhotoPath(picked.path);
-        // TODO: Upload picked image file to backend storage here.
       }
     } catch (e) {
+      if (!mounted) return;
       debugPrint('Image pick error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not pick image. Please try again.')),
@@ -320,11 +397,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
     final mobile = _mobileController.text.trim();
-    final email = _emailController.text.trim();
     final ageText = _ageController.text.trim();
     final address = _addressController.text.trim();
 
@@ -336,8 +412,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       error = 'Last name is required';
     } else if (!_isValidPhone(mobile)) {
       error = 'Enter a valid mobile number';
-    } else if (!_isValidEmail(email)) {
-      error = 'Enter a valid email address';
     } else if (!_isValidAge(ageText)) {
       error = 'Enter a valid age (number)';
     }
@@ -349,31 +423,47 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
-    // Log values for demo; replace with API call when backend is ready.
-    debugPrint('Saving profile:');
-    debugPrint('Name: $first $last');
-    debugPrint('Mobile: $mobile');
-    debugPrint('Email: $email');
-    debugPrint('Gender: $_selectedGender');
-    debugPrint('Marital Status: $_selectedMaritalStatus');
-    debugPrint('Age: $ageText');
-    debugPrint('Address: $address');
-    debugPrint('Photo: ${_pickedImage?.path ?? 'not changed'}');
-    // TODO: Call backend API to persist profile changes.
+    final age = int.tryParse(ageText);
+    if (age == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid age (number)')),
+      );
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully')),
-    );
+    setState(() => _isSaving = true);
+    try {
+      await _userService.updateProfile({
+        'firstName': first,
+        'lastName': last,
+        'phone': mobile,
+        'gender': _selectedGender,
+        'maritalStatus': _selectedMaritalStatus,
+        'age': age,
+        'address': address,
+        'profileImage': _profileImageData ?? '',
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully')),
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   bool _isValidPhone(String input) {
     final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
     return digits.length >= 8;
-  }
-
-  bool _isValidEmail(String input) {
-    final emailReg = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    return emailReg.hasMatch(input);
   }
 
   bool _isValidAge(String input) {

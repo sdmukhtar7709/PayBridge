@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
+import '../../services/agent_service.dart';
 import 'agent_registration_screen.dart';
 
 class AgentHomeScreen extends StatefulWidget {
@@ -14,9 +17,10 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
   int _currentIndex = 0;
   bool _pulseUp = true;
 
-  final String _shopName = 'Green Mart Kiosk';
-  final String _agentName = 'Rahul Patil';
-  final String _cityName = 'Pune, Maharashtra';
+  String _shopName = 'Agent Shop';
+  String _agentName = 'Agent';
+  String _cityName = 'Your City';
+  Uint8List? _profilePhotoBytes;
   final double _rating = 4.6; // TODO: Backend will calculate agent rating from user feedback
 
   final List<Map<String, String>> _liveRequests = [
@@ -47,6 +51,57 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadAgentProfile();
+  }
+
+  Future<void> _loadAgentProfile() async {
+    try {
+      final profile = await AgentService.getProfile();
+      if (!mounted) return;
+      setState(() {
+        _agentName = profile.name;
+        _shopName = (profile.locationName ?? '').trim().isEmpty
+            ? 'Agent Shop'
+            : profile.locationName!.trim();
+        _cityName = _deriveCity(profile.address);
+        _profilePhotoBytes = _decodeProfileImage(profile.profileImage);
+      });
+    } catch (_) {
+      final cached = await AgentService.getCachedProfile();
+      if (!mounted || cached == null) return;
+      setState(() {
+        _agentName = cached.name;
+        _shopName = (cached.locationName ?? '').trim().isEmpty
+            ? 'Agent Shop'
+            : cached.locationName!.trim();
+        _cityName = _deriveCity(cached.address);
+        _profilePhotoBytes = _decodeProfileImage(cached.profileImage);
+      });
+    }
+  }
+
+  Uint8List? _decodeProfileImage(String? imageValue) {
+    if (imageValue == null || imageValue.trim().isEmpty) return null;
+    final trimmed = imageValue.trim();
+    final base64Part = trimmed.startsWith('data:image') && trimmed.contains(',')
+        ? trimmed.substring(trimmed.indexOf(',') + 1)
+        : trimmed;
+    try {
+      return base64Decode(base64Part);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _deriveCity(String? address) {
+    if (address == null || address.trim().isEmpty) return 'Your City';
+    final parts = address.split(',').map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+    return parts.isNotEmpty ? parts.last : address.trim();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FB),
@@ -64,10 +119,11 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
             },
             child: Row(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 18,
                   backgroundColor: Colors.blue,
-                  child: Icon(Icons.person, color: Colors.white),
+                  backgroundImage: _profilePhotoBytes != null ? MemoryImage(_profilePhotoBytes!) : null,
+                  child: _profilePhotoBytes == null ? const Icon(Icons.person, color: Colors.white) : null,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -232,7 +288,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -274,7 +330,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.red.withOpacity(0.4),
+                        color: Colors.red.withValues(alpha: 0.4),
                         blurRadius: 6 * value,
                         spreadRadius: 1.5,
                       ),
@@ -301,7 +357,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -322,7 +378,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.08),
+                      color: Colors.blue.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

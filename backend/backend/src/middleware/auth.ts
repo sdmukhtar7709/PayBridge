@@ -15,8 +15,20 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
 
   const token = authHeader.slice("Bearer ".length);
   try {
-   const payload = jwt.verify(token, JWT_SECRET) as { sub: string; email: string; role?: string };
-   req.user = { id: payload.sub, email: payload.email, role: payload.role };
+    const payload = jwt.verify(token, JWT_SECRET) as {
+      sub?: string;
+      userId?: string;
+      id?: string;
+      email?: string;
+      role?: string;
+    };
+
+    const resolvedUserId = payload.sub ?? payload.userId ?? payload.id;
+    if (!resolvedUserId) {
+      return res.status(401).json({ error: "Invalid token payload" });
+    }
+
+    req.user = { id: resolvedUserId, email: payload.email, role: payload.role };
     return next();
   } catch (err) {
     return res.status(401).json({ error: "Invalid token" });

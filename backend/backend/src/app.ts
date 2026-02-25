@@ -30,6 +30,7 @@ import agentRegisterRoutes from "./routes/agentRegisterRoutes.js";
 import mapsProxyRoutes from "./routes/mapsProxyRoutes.js";
 import cashTransactionRoutes from "./routes/cashTransactionRoutes.js";
 import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
 
 // Middleware
 import { requireAuth } from "./middleware/auth.js";
@@ -116,6 +117,7 @@ app.use("/transactions", cashTransactionRoutes);
 app.use("/maps", mapsProxyRoutes);
 app.use("/auth", authRateLimit, authRoutes);
 app.use("/auth", authRateLimit, sessionRoutes);
+app.use("/user", dataRateLimit, userRoutes);
 app.use("/accounts", dataRateLimit, accountRoutes);
 app.use("/", agentRegisterRoutes);
 app.use("/agent/transactions", requireAuth, agentTransactionRoutes);

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Google Map API Test - Satellite</title>
+  <meta charset="utf-8" />
+  <style>
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+
+    .controls {
+      margin: 10px 0;
+    }
+
+    button {
+      padding: 8px 12px;
+      margin-right: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Map API Test (Satellite Option)</h2>
+
+<div class="controls">
+  <button onclick="setRoadmap()">Roadmap</button>
+  <button onclick="setSatellite()">Satellite</button>
+</div>
+
+<div id="map"></div>
+
+<script>
+  let map;
+
+  function initMap() {
+    const location = { lat: 18.5204, lng: 73.8567 };
+
+    map = new google.maps.Map(document.getElementById("map"), {
+      zoom: 12,
+      center: location,
+      mapTypeId: "roadmap" // default view
+    });
+
+    new google.maps.Marker({
+      position: location,
+      map: map,
+    });
+  }
+
+  function setRoadmap() {
+    map.setMapTypeId("roadmap");
+  }
+
+  function setSatellite() {
+    map.setMapTypeId("satellite");
+  }
+</script>
+
+<!-- Replace YOUR_API_KEY -->
+<script async
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAsFf94ujUvy_l8abhCt1g5wZ1c2LBeUYA&callback=initMap">
+</script>
+
+</body>
+</html>

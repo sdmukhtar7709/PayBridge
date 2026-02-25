@@ -31,7 +31,14 @@ model User {
   refreshTokens RefreshToken[]
   id            String         @id @default(uuid())
   name          String
+  firstName     String?
+  lastName      String?
   phone         String?
+  gender        String?
+  maritalStatus String?
+  age           Int?
+  address       String?
+  profileImage  String?
   email         String         @unique
   passwordHash  String
   createdAt     DateTime       @default(now())

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../services/agent_service.dart';
+import '../auth/login_screen.dart';
+import 'agent_home_screen.dart';
 import 'agent_registration_screen.dart';
 
 class AgentLoginScreen extends StatefulWidget {
@@ -24,6 +27,35 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
     super.dispose();
   }
 
+  Future<void> _handleAgentLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both email and password.')),
+      );
+      return;
+    }
+
+    setState(() => _isLoggingIn = true);
+    try {
+      await AgentService.loginAgent(email: email, password: password);
+      if (!mounted) return;
+      setState(() => _isLoggingIn = false);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AgentHomeScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoggingIn = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,7 +78,7 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 14,
                           offset: const Offset(0, 6),
                         ),
@@ -78,16 +110,7 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoggingIn
-                          ? null
-                          : () {
-                              setState(() => _isLoggingIn = true);
-                              // TODO: Call backend agent login API, validate token, enforce role-based access, and admin approval checks.
-                              Future<void>.delayed(const Duration(milliseconds: 500)).then((_) {
-                                if (!mounted) return;
-                                setState(() => _isLoggingIn = false);
-                              });
-                            },
+                      onPressed: _isLoggingIn ? null : _handleAgentLogin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primary,
                         foregroundColor: Colors.white,
@@ -112,6 +135,14 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
                       );
                     },
                     child: const Text('New agent? Create an account'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                    child: const Text('User Login'),
                   ),
                 ],
               ),

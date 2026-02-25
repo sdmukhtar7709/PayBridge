@@ -7,6 +7,7 @@ class ProfileHeader extends StatelessWidget {
   final String subtitle;
   final VoidCallback onManageProfile;
   final File? photoFile;
+  final ImageProvider<Object>? photoImage;
 
   const ProfileHeader({
     super.key,
@@ -14,17 +15,19 @@ class ProfileHeader extends StatelessWidget {
     required this.subtitle,
     required this.onManageProfile,
     this.photoFile,
+    this.photoImage,
   });
 
   @override
   Widget build(BuildContext context) {
+    final imageProvider = photoImage ?? (photoFile != null ? FileImage(photoFile!) : null);
     return Column(
       children: [
         CircleAvatar(
           radius: 46,
           backgroundColor: const Color(0xffe0f2fe),
-          backgroundImage: photoFile != null ? FileImage(photoFile!) : null,
-          child: photoFile == null
+          backgroundImage: imageProvider,
+          child: imageProvider == null
               ? const Icon(Icons.person, size: 48, color: Colors.blue)
               : null,
         ),

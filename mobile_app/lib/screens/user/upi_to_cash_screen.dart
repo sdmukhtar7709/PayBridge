@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../services/location_service.dart';
+import '../../services/user_service.dart';
+
 class UpiToCashScreen extends StatefulWidget {
   const UpiToCashScreen({super.key});
 
@@ -10,15 +13,51 @@ class UpiToCashScreen extends StatefulWidget {
 class _UpiToCashScreenState extends State<UpiToCashScreen> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
+  final LocationService _locationService = LocationService();
+  final UserService _userService = UserService();
 
   String _distance = '1-2 km';
   bool _useCurrentLocation = true;
+  bool _isFetchingLocation = false;
 
   @override
   void dispose() {
     _amountController.dispose();
     _cityController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _useDeviceLocation();
+  }
+
+  Future<void> _useDeviceLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      final location = await _locationService.getCurrentLocation();
+      try {
+        await _userService.updateProfile({'address': location.address});
+      } catch (_) {
+        // Ignore profile persistence errors to keep location UI responsive.
+      }
+      if (!mounted) return;
+      setState(() {
+        _useCurrentLocation = true;
+        _cityController.text = location.city;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _useCurrentLocation = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingLocation = false);
+      }
+    }
   }
 
   @override
@@ -46,6 +85,10 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
               _distanceSelector(),
               const SizedBox(height: 16),
               _locationToggle(),
+              if (_isFetchingLocation) ...[
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(),
+              ],
               const SizedBox(height: 16),
               TextField(
                 controller: _cityController,
@@ -90,7 +133,7 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -133,7 +176,7 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -151,9 +194,12 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
           ),
           Switch(
             value: _useCurrentLocation,
-            onChanged: (val) {
-              setState(() => _useCurrentLocation = val);
-              // TODO: Hook into location services to fetch GPS when enabled
+            onChanged: (val) async {
+              if (val) {
+                await _useDeviceLocation();
+                return;
+              }
+              setState(() => _useCurrentLocation = false);
             },
           ),
         ],

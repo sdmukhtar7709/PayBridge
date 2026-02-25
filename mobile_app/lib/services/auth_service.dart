@@ -6,14 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   static const String _apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.57.70.152:4000',
+    defaultValue: 'http://192.168.1.108:4002',
   );
   static const String _authPath = '$_apiBaseUrl/auth';
   static const String _tokenKey = 'auth_token';
 
   static Future<AuthResult> register(String email, String password) async {
-    final res = await _post(
-      '$_authPath/register',
+    final res = await _postAny(
+      _candidateAuthUrls('/register'),
       {
         'email': email,
         'password': password,
@@ -25,8 +25,8 @@ class AuthService {
   }
 
   static Future<AuthResult> login(String email, String password) async {
-    final res = await _post(
-      '$_authPath/login',
+    final res = await _postAny(
+      _candidateAuthUrls('/login'),
       {
         'email': email,
         'password': password,
@@ -47,6 +47,33 @@ class AuthService {
   }
 
   // --- internals ---
+  static List<String> _candidateAuthUrls(String path) {
+    final urls = <String>{'$_authPath$path'};
+
+    if (_apiBaseUrl.endsWith(':4001')) {
+      urls.add('${_apiBaseUrl.replaceFirst(':4001', ':4000')}/auth$path');
+    } else if (_apiBaseUrl.endsWith(':4000')) {
+      urls.add('${_apiBaseUrl.replaceFirst(':4000', ':4001')}/auth$path');
+    }
+
+    return urls.toList();
+  }
+
+  static Future<Map<String, dynamic>> _postAny(
+    List<String> urls,
+    Map<String, dynamic> payload,
+  ) async {
+    Object? lastError;
+    for (final url in urls) {
+      try {
+        return await _post(url, payload);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError ?? Exception('Request failed');
+  }
+
   static Future<Map<String, dynamic>> _post(String url, Map<String, dynamic> payload) async {
     final response = await http.post(
       Uri.parse(url),

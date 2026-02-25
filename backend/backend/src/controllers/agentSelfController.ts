@@ -2,6 +2,53 @@ import { Request, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { agentProfileCreateSchema, agentProfilePatchSchema } from "../schemas/agentProfileSchemas.js";
 
+// GET /agent/profile
+export async function getAgentProfile(req: Request, res: Response) {
+  const userId = (req as any).user?.id;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      address: true,
+      gender: true,
+      maritalStatus: true,
+      age: true,
+      profileImage: true,
+      agentProfile: true,
+    },
+  });
+
+  if (!user || user.role !== "agent") {
+    return res.status(404).json({ error: "Agent profile not found" });
+  }
+
+  return res.json({
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      address: user.address,
+      gender: user.gender,
+      maritalStatus: user.maritalStatus,
+      age: user.age,
+      profileImage: user.profileImage,
+    },
+    agentProfile: user.agentProfile,
+  });
+}
+
 // POST /agent/profile
 export async function createAgentProfile(req: Request, res: Response) {
   const userId = (req as any).user?.id;

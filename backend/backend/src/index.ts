@@ -1,9 +1,21 @@
 import { app } from "./app";
 import { env } from "./config/env";
+import prisma from "./lib/prisma.js";
 
 const port = env.port;
 
-app.listen(port, () => {
-  
-  console.log(`API listening on http://localhost:${port}`);
-});
+async function bootstrap() {
+  try {
+    await prisma.$connect();
+    console.log("Database connected");
+
+    app.listen(port, () => {
+      console.log(`Server running on http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error("Failed to connect database:", error);
+    process.exit(1);
+  }
+}
+
+bootstrap();

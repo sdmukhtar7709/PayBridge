@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -9,6 +11,7 @@ import 'edit_profile_screen.dart';
 import 'language_screen.dart';
 import 'theme_screen.dart';
 import '../../services/profile_photo_service.dart';
+import '../../services/user_service.dart';
 import '../../widgets/profile_header.dart';
 import '../../widgets/settings_section.dart';
 import '../../widgets/settings_tile.dart';
@@ -22,21 +25,56 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  final String _profileName = 'Muktar Sayyad';
+  String _profileName = 'User';
   final String _upiId = '770968@ybl';
   File? _photoFile;
+  Uint8List? _profilePhotoBytes;
   final ProfilePhotoService _photoService = ProfilePhotoService();
+  final UserService _userService = UserService();
 
   @override
   void initState() {
     super.initState();
     _loadPhoto();
+    _loadProfile();
   }
 
   Future<void> _loadPhoto() async {
     final file = await _photoService.loadPhotoFile();
-    if (file != null && mounted) {
+    if (mounted) {
       setState(() => _photoFile = file);
+    }
+  }
+
+  Uint8List? _decodeProfileImage(String? imageValue) {
+    if (imageValue == null || imageValue.trim().isEmpty) return null;
+    final trimmed = imageValue.trim();
+    final base64Part = trimmed.startsWith('data:image') && trimmed.contains(',')
+        ? trimmed.substring(trimmed.indexOf(',') + 1)
+        : trimmed;
+
+    try {
+      return base64Decode(base64Part);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _userService.getProfile();
+      if (!mounted) return;
+      setState(() {
+        _profileName = profile.displayName.isEmpty ? 'User' : profile.displayName;
+        _profilePhotoBytes = _decodeProfileImage(profile.profileImage);
+      });
+    } catch (_) {
+      final cached = await _userService.getCachedProfile();
+      if (!mounted || cached == null) return;
+      setState(() {
+        _profileName = cached.displayName.isEmpty ? 'User' : cached.displayName;
+        _profilePhotoBytes = _decodeProfileImage(cached.profileImage);
+      });
     }
   }
 
@@ -67,6 +105,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       name: _profileName,
                       subtitle: 'Personal account',
                       photoFile: _photoFile,
+                      photoImage: _profilePhotoBytes != null ? MemoryImage(_profilePhotoBytes!) : null,
                       onManageProfile: () {
                         Navigator.of(context)
                             .push(
@@ -74,7 +113,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 builder: (_) => const EditProfileScreen(),
                               ),
                             )
-                            .then((_) => _loadPhoto());
+                            .then((updated) {
+                          _loadPhoto();
+                          if (updated == true) {
+                            _loadProfile();
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 20),
@@ -199,12 +243,4 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _settingsTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return SettingsTile(icon: icon, title: title, onTap: onTap);
-  }
 }
