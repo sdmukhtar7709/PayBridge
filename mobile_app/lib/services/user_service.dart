@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import 'auth_service.dart';
 
 class User {
@@ -59,10 +60,7 @@ class User {
 }
 
 class UserService {
-  static const String _apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://192.168.1.108:4002',
-  );
+  static const String _apiBaseUrl = ApiConfig.baseUrl;
   static const String _profilePath = '$_apiBaseUrl/user/profile';
   static const String _cachedProfileKey = 'cached_user_profile';
 

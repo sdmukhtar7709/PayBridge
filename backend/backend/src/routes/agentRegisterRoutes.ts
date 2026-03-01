@@ -20,6 +20,7 @@ const registerAgentSchema = z.object({
   address: z.string().trim().optional(),
   profileImage: z.string().trim().optional(),
   locationName: z.string().trim().min(1),
+  city: z.string().trim().max(50).optional(),
   cashLimit: z.coerce.number().positive(),
 });
 
@@ -27,6 +28,22 @@ const loginAgentSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
 });
+
+function deriveCity(value?: string | null): string | null {
+  if (!value) return null;
+  const parts = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  return parts[parts.length - 1] || null;
+}
+
+function normalizeCity(inputCity?: string, address?: string, locationName?: string) {
+  const direct = inputCity?.trim();
+  if (direct) return direct;
+  return deriveCity(address) ?? deriveCity(locationName);
+}
 
 function signToken(user: { id: string; email: string; role: string }) {
   return jwt.sign(
@@ -61,6 +78,7 @@ router.post("/register-agent", async (req, res) => {
     address,
     profileImage,
     locationName,
+    city,
     cashLimit,
   } = parsed.data;
 
@@ -72,6 +90,9 @@ router.post("/register-agent", async (req, res) => {
   const normalizedFirstName = firstName?.trim() || null;
   const normalizedLastName = lastName?.trim() || null;
   const fullName = name?.trim() || [normalizedFirstName, normalizedLastName].filter(Boolean).join(" ").trim() || email.split("@")[0] || "Agent";
+  const normalizedAddress = address?.trim() || null;
+  const normalizedLocationName = locationName.trim();
+  const normalizedCity = normalizeCity(city, normalizedAddress ?? undefined, normalizedLocationName) ?? null;
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
@@ -86,7 +107,7 @@ router.post("/register-agent", async (req, res) => {
       gender: gender?.trim() || null,
       maritalStatus: maritalStatus?.trim() || null,
       age: age ?? null,
-      address: address?.trim() || null,
+      address: normalizedAddress,
       profileImage: profileImage?.trim() || null,
     },
   });
@@ -94,7 +115,8 @@ router.post("/register-agent", async (req, res) => {
   const agentProfile = await prisma.agentProfile.create({
     data: {
       userId: user.id,
-      locationName,
+      locationName: normalizedLocationName,
+      city: normalizedCity,
       cashLimit,
       isVerified: true, // or false if you want manual approval
       isBanned: false,
@@ -137,12 +159,24 @@ router.post("/login-agent", async (req, res) => {
   });
 
   if (!user || user.role !== "agent") {
-    return res.status(401).json({ error: "Invalid credentials" });
+    return res.status(401).json({
+      error: {
+        code: "INVALID_CREDENTIALS",
+        message: "Invalid login credentials",
+        details: [{ path: "email", message: "Email not found" }],
+      },
+    });
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
-    return res.status(401).json({ error: "Invalid credentials" });
+    return res.status(401).json({
+      error: {
+        code: "INVALID_CREDENTIALS",
+        message: "Invalid login credentials",
+        details: [{ path: "password", message: "Password is incorrect" }],
+      },
+    });
   }
 
   const token = signToken({ id: user.id, email: user.email, role: user.role });

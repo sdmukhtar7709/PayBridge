@@ -2,12 +2,10 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 
 class AuthService {
-  static const String _apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://192.168.1.108:4002',
-  );
+  static const String _apiBaseUrl = ApiConfig.baseUrl;
   static const String _authPath = '$_apiBaseUrl/auth';
   static const String _tokenKey = 'auth_token';
 
@@ -48,15 +46,7 @@ class AuthService {
 
   // --- internals ---
   static List<String> _candidateAuthUrls(String path) {
-    final urls = <String>{'$_authPath$path'};
-
-    if (_apiBaseUrl.endsWith(':4001')) {
-      urls.add('${_apiBaseUrl.replaceFirst(':4001', ':4000')}/auth$path');
-    } else if (_apiBaseUrl.endsWith(':4000')) {
-      urls.add('${_apiBaseUrl.replaceFirst(':4000', ':4001')}/auth$path');
-    }
-
-    return urls.toList();
+    return <String>['$_authPath$path'];
   }
 
   static Future<Map<String, dynamic>> _postAny(
@@ -113,12 +103,21 @@ class AuthResult {
   AuthResult({required this.token, required this.user});
 
   factory AuthResult.fromJson(Map<String, dynamic> json) {
-    final token = (json['token'] ?? json['accessToken'] ?? '') as String;
+    final token = _readString(json['token'])
+        .isNotEmpty
+        ? _readString(json['token'])
+        : _readString(json['accessToken']);
     return AuthResult(
       token: token,
       user: AuthUser.fromJson((json['user'] ?? <String, dynamic>{}) as Map<String, dynamic>),
     );
   }
+}
+
+String _readString(dynamic value) {
+  if (value == null) return '';
+  if (value is String) return value;
+  return value.toString();
 }
 
 class AuthUser {
@@ -136,10 +135,12 @@ class AuthUser {
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(
-      id: (json['id'] ?? json['_id'] ?? '') as String,
-      name: (json['name'] ?? '') as String,
-      email: (json['email'] ?? '') as String,
-      role: json['role'] as String?,
+      id: _readString(json['id']).isNotEmpty
+          ? _readString(json['id'])
+          : _readString(json['_id']),
+      name: _readString(json['name']),
+      email: _readString(json['email']),
+      role: _readString(json['role']).isEmpty ? null : _readString(json['role']),
     );
   }
 }

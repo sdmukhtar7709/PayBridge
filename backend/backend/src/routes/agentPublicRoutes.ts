@@ -22,6 +22,7 @@ router.get("/nearby", async (req, res) => {
   const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
   const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
   const radius = req.query.radius ? parseFloat(req.query.radius as string) : 2; // default 2km
+  const cityQuery = typeof req.query.city === "string" ? req.query.city.trim() : "";
 
   // Validate
   if (
@@ -34,11 +35,48 @@ router.get("/nearby", async (req, res) => {
     return res.status(400).json({ error: "Radius out of range (0.1–100km)" });
   }
 
-  // If no geo-coords provided, return ALL available+verified agents (fallback)
+  // If city is provided, city filter takes priority and returns all available agents in that city.
+  if (cityQuery) {
+    const agentsByCity = await prisma.agentProfile.findMany({
+      where: {
+        isBanned: false,
+        city: {
+          contains: cityQuery,
+          mode: "insensitive",
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            profileImage: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.json(agentsByCity);
+  }
+
+  // If no geo-coords provided, return all non-banned agents (dev-friendly fallback)
   if (lat === undefined || lng === undefined) {
     const agents = await prisma.agentProfile.findMany({
-      where: { isVerified: true, isBanned: false, available: true },
-      include: { user: { select: { id: true, name: true, email: true } } },
+      where: {
+        isBanned: false,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            profileImage: true,
+          },
+        },
+      },
     });
     return res.json(agents);
   }
@@ -46,13 +84,20 @@ router.get("/nearby", async (req, res) => {
   // Grab geo-enabled agents from DB
   const agents = await prisma.agentProfile.findMany({
     where: {
-      isVerified: true,
       isBanned: false,
-      available: true,
       latitude: { not: null },
       longitude: { not: null },
     },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          profileImage: true,
+        },
+      },
+    },
   });
 
   // Filter by distance using Haversine (in JavaScript)

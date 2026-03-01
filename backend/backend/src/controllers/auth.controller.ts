@@ -13,6 +13,18 @@ function getStatusCode(error: unknown, fallback: number) {
   return fallback;
 }
 
+function getErrorBody(error: unknown): unknown {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "body" in error &&
+    typeof (error as { body?: unknown }).body === "object"
+  ) {
+    return (error as { body: unknown }).body;
+  }
+  return null;
+}
+
 function getMessage(error: unknown, fallback: string) {
   if (
     typeof error === "object" &&
@@ -39,6 +51,10 @@ export async function loginController(req: Request, res: Response) {
     const payload = await loginUser(req.body);
     return res.status(200).json(payload);
   } catch (error) {
+    const customBody = getErrorBody(error);
+    if (customBody) {
+      return res.status(getStatusCode(error, 401)).json(customBody);
+    }
     return res.status(getStatusCode(error, 401)).json({ error: getMessage(error, "Login failed") });
   }
 }

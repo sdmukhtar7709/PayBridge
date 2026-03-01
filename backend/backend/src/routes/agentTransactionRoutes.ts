@@ -36,6 +36,218 @@ const approveSchema = z.object({
   status: z.nativeEnum(TransactionStatus),
 });
 
+const liveRequestsQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});
+
+const historyRequestsQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(50),
+});
+
+function deriveCity(address?: string | null): string | null {
+  if (!address) return null;
+  const parts = address
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  return parts[parts.length - 1] ?? null;
+}
+
+// 🔐 AGENT-ONLY: List live pending/approved user requests for this agent
+router.get(
+  "/live-requests",
+  requireAuth,
+  requireRole(["agent"]),
+  validate(liveRequestsQuerySchema, "query"),
+  async (req: AuthRequest, res) => {
+    const { limit } = req.query as unknown as z.infer<typeof liveRequestsQuerySchema>;
+
+    const agentProfile = await prisma.agentProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!agentProfile) {
+      return res.status(404).json({ error: "Agent profile not found" });
+    }
+
+    const txItems = await prisma.agentTransaction.findMany({
+      where: {
+        agentId: agentProfile.id,
+        status: { in: ["pending", "approved"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+
+    const userIds = Array.from(new Set(txItems.map((item) => item.userId)));
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        profileImage: true,
+      },
+    });
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const items = txItems.map((item) => {
+      const user = userMap.get(item.userId);
+      return {
+        ...item,
+        user: user
+          ? {
+              ...user,
+              city: deriveCity(user.address),
+            }
+          : null,
+      };
+    });
+
+    return res.json({ items });
+  }
+);
+
+// 🔐 AGENT-ONLY: Reject a pending live request assigned to current agent
+router.patch(
+  "/live-requests/:id/approve",
+  requireAuth,
+  requireRole(["agent"]),
+  async (req: AuthRequest, res) => {
+    const { id } = req.params;
+
+    const agentProfile = await prisma.agentProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!agentProfile) {
+      return res.status(404).json({ error: "Agent profile not found" });
+    }
+
+    const existing = await prisma.agentTransaction.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    if (existing.agentId !== agentProfile.id) {
+      return res.status(403).json({ error: "You are not assigned to this request" });
+    }
+    if (existing.status !== "pending") {
+      return res.status(400).json({ error: "Only pending requests can be approved" });
+    }
+
+    const updated = await prisma.agentTransaction.update({
+      where: { id },
+      data: {
+        status: "approved",
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    return res.json(updated);
+  }
+);
+
+router.patch(
+  "/live-requests/:id/reject",
+  requireAuth,
+  requireRole(["agent"]),
+  async (req: AuthRequest, res) => {
+    const { id } = req.params;
+
+    const agentProfile = await prisma.agentProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!agentProfile) {
+      return res.status(404).json({ error: "Agent profile not found" });
+    }
+
+    const existing = await prisma.agentTransaction.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    if (existing.agentId !== agentProfile.id) {
+      return res.status(403).json({ error: "You are not assigned to this request" });
+    }
+    if (existing.status !== "pending") {
+      return res.status(400).json({ error: "Only pending requests can be rejected" });
+    }
+
+    const updated = await prisma.agentTransaction.update({
+      where: { id },
+      data: { status: "rejected" },
+    });
+
+    return res.json({ id: updated.id, status: updated.status });
+  }
+);
+
+// 🔐 AGENT-ONLY: List transaction history for current agent
+router.get(
+  "/history",
+  requireAuth,
+  requireRole(["agent"]),
+  validate(historyRequestsQuerySchema, "query"),
+  async (req: AuthRequest, res) => {
+    const { limit } = req.query as unknown as z.infer<typeof historyRequestsQuerySchema>;
+
+    const agentProfile = await prisma.agentProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!agentProfile) {
+      return res.status(404).json({ error: "Agent profile not found" });
+    }
+
+    const txItems = await prisma.agentTransaction.findMany({
+      where: {
+        agentId: agentProfile.id,
+        status: { in: ["approved", "confirmed", "rejected", "cancelled"] },
+      },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      take: limit,
+    });
+
+    const userIds = Array.from(new Set(txItems.map((item) => item.userId)));
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+      },
+    });
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const items = txItems.map((item) => {
+      const user = userMap.get(item.userId);
+      return {
+        ...item,
+        user: user
+          ? {
+              ...user,
+              city: deriveCity(user.address),
+            }
+          : null,
+      };
+    });
+
+    return res.json({ items });
+  }
+);
+
 // 🔐 AGENT-ONLY: List handled transactions
 router.get(
   "/",

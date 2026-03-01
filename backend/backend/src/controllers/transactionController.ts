@@ -25,14 +25,20 @@ export async function createTransaction(req: Request, res: Response) {
   const { agentId, amount } = req.body;
   const userId = req.user.id; // <-- Assumes requireAuth middleware sets req.user
 
-  // Ensure agent exists, is verified, and not banned
-  const agent = await prisma.agentProfile.findFirst({ where: { userId: agentId } });
-  if (!agent || !agent.isVerified || agent.isBanned) {
+  // Ensure target agent profile exists and is not banned.
+  // Accept either AgentProfile.id (preferred) or legacy userId input.
+  const agent = await prisma.agentProfile.findFirst({
+    where: {
+      isBanned: false,
+      OR: [{ id: agentId }, { userId: agentId }],
+    },
+  });
+  if (!agent) {
     return res.status(400).json({ error: "Agent not available" });
   }
 
-  // Generate 6-digit OTP and expiry (10 minutes)
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate 4-digit OTP and expiry (10 minutes)
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
   const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min from now
 
   const txn = await prisma.agentTransaction.create({
@@ -40,7 +46,7 @@ export async function createTransaction(req: Request, res: Response) {
       status: "pending",
       amount,
       userId,
-      agentId,
+      agentId: agent.id,
       otp,
       otpExpires: otpExpiry,
     }
@@ -94,11 +100,20 @@ export async function confirmTransaction(req: AuthRequest, res: Response) {
     }
   });
   if (!txn) return res.status(404).json({ error: "Transaction not found" });
-  if (txn.status !== "pending") return res.status(400).json({ error: "Transaction already completed or cancelled" });
+  if (txn.status !== "pending" && txn.status !== "approved") {
+    return res.status(400).json({ error: "Transaction already completed or cancelled" });
+  }
   if (txn.otpExpires && new Date() > txn.otpExpires) return res.status(400).json({ error: "OTP expired" });
 
-  // AGENT MUST MATCH. If you want user to confirm, change to: txn.userId !== req.user.id
-  if (txn.agentId !== req.user.id) return res.status(403).json({ error: "You are not the assigned agent" });
+  // AGENT MUST MATCH by AgentProfile.id
+  const agentProfile = await prisma.agentProfile.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true },
+  });
+
+  if (!agentProfile || txn.agentId !== agentProfile.id) {
+    return res.status(403).json({ error: "You are not the assigned agent" });
+  }
 
   if (txn.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
 
@@ -118,4 +133,145 @@ export async function confirmTransaction(req: AuthRequest, res: Response) {
     status: updated.status,
     completedAt: updated.completedAt,
   });
+}
+
+/**
+ * GET /transactions/request/:id/status
+ * User checks latest status of own request.
+ */
+export async function getTransactionStatus(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+
+  const txn = await prisma.agentTransaction.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      status: true,
+      amount: true,
+      otp: true,
+      userId: true,
+      agentId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!txn) {
+    return res.status(404).json({ error: "Transaction not found" });
+  }
+  if (txn.userId !== req.user.id) {
+    return res.status(403).json({ error: "You are not allowed to view this request" });
+  }
+
+  const agent = await prisma.agentProfile.findUnique({
+    where: { id: txn.agentId },
+    select: {
+      id: true,
+      city: true,
+      locationName: true,
+      user: {
+        select: {
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return res.json({
+    ...txn,
+    otp: txn.status === "approved" || txn.status === "confirmed" ? txn.otp : null,
+    agent,
+  });
+}
+
+/**
+ * PATCH /transactions/request/:id/cancel
+ * User cancels own pending request.
+ */
+export async function cancelTransaction(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+
+  const txn = await prisma.agentTransaction.findUnique({
+    where: { id },
+    select: { id: true, status: true, userId: true },
+  });
+
+  if (!txn) {
+    return res.status(404).json({ error: "Transaction not found" });
+  }
+  if (txn.userId !== req.user.id) {
+    return res.status(403).json({ error: "You are not allowed to cancel this request" });
+  }
+  if (txn.status !== "pending") {
+    return res.status(400).json({ error: "Only pending request can be cancelled" });
+  }
+
+  const updated = await prisma.agentTransaction.update({
+    where: { id },
+    data: { status: "cancelled" },
+  });
+
+  return res.json({ id: updated.id, status: updated.status });
+}
+
+/**
+ * GET /transactions/requests
+ * User sees all own raised requests with status and agent info.
+ */
+export async function listUserRequests(req: AuthRequest, res: Response) {
+  const limitRaw = Number(req.query.limit ?? 50);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
+  const status = typeof req.query.status === "string" ? req.query.status.trim().toLowerCase() : "";
+
+  const where: { userId: string; status?: string } = { userId: req.user.id };
+  if (status) {
+    where.status = status;
+  }
+
+  const items = await prisma.agentTransaction.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      status: true,
+      otp: true,
+      amount: true,
+      createdAt: true,
+      updatedAt: true,
+      agentId: true,
+      completedAt: true,
+    },
+  });
+
+  const agentIds = Array.from(new Set(items.map((item) => item.agentId)));
+  const profiles = await prisma.agentProfile.findMany({
+    where: { id: { in: agentIds } },
+    select: {
+      id: true,
+      city: true,
+      locationName: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          address: true,
+        },
+      },
+    },
+  });
+
+  const agentMap = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  const enriched = items.map((item) => ({
+    ...item,
+    otp: item.status === "approved" || item.status === "confirmed" ? item.otp : null,
+    agent: agentMap.get(item.agentId) ?? null,
+  }));
+
+  return res.json({ items: enriched });
 }

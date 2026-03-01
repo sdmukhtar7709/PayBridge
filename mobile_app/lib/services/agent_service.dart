@@ -2,29 +2,46 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 
 class AgentProfileData {
   final String name;
+  final String? email;
   final String? firstName;
   final String? lastName;
   final String? phone;
+  final String? gender;
+  final String? maritalStatus;
+  final int? age;
   final String? address;
   final String? profileImage;
   final String? locationName;
+  final String? city;
+  final double? latitude;
+  final double? longitude;
   final num? cashLimit;
   final bool? isVerified;
+  final bool? isBanned;
   final bool? available;
 
   AgentProfileData({
     required this.name,
+    this.email,
     this.firstName,
     this.lastName,
     this.phone,
+    this.gender,
+    this.maritalStatus,
+    this.age,
     this.address,
     this.profileImage,
     this.locationName,
+    this.city,
+    this.latitude,
+    this.longitude,
     this.cashLimit,
     this.isVerified,
+    this.isBanned,
     this.available,
   });
 
@@ -36,9 +53,9 @@ class AgentProfileData {
         ? json['agentProfile'] as Map<String, dynamic>
         : <String, dynamic>{};
 
-    final firstName = user['firstName'] as String?;
-    final lastName = user['lastName'] as String?;
-    final fullName = ((user['name'] as String?) ?? '').trim();
+    final firstName = _toNullableString(user['firstName']);
+    final lastName = _toNullableString(user['lastName']);
+    final fullName = _toStringValue(user['name']).trim();
     final computed = [firstName, lastName]
       .whereType<String>()
       .map((value) => value.trim())
@@ -47,14 +64,22 @@ class AgentProfileData {
 
     return AgentProfileData(
       name: fullName.isNotEmpty ? fullName : (computed.isNotEmpty ? computed : 'Agent'),
+      email: _toNullableString(user['email']),
       firstName: firstName,
       lastName: lastName,
-      phone: user['phone'] as String?,
-      address: user['address'] as String?,
-      profileImage: user['profileImage'] as String?,
-      locationName: agent['locationName'] as String?,
+      phone: _toNullableString(user['phone']),
+      gender: _toNullableString(user['gender']),
+      maritalStatus: _toNullableString(user['maritalStatus']),
+      age: _toInt(user['age']),
+      address: _toNullableString(user['address']),
+      profileImage: _toNullableString(user['profileImage']),
+      locationName: _toNullableString(agent['locationName']),
+      city: _toNullableString(agent['city']),
+      latitude: _toDouble(agent['latitude']),
+      longitude: _toDouble(agent['longitude']),
       cashLimit: _toNum(agent['cashLimit']),
       isVerified: agent['isVerified'] as bool?,
+      isBanned: agent['isBanned'] as bool?,
       available: agent['available'] as bool?,
     );
   }
@@ -66,20 +91,55 @@ class AgentProfileData {
     return null;
   }
 
+  static String _toStringValue(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    return value.toString();
+  }
+
+  static String? _toNullableString(dynamic value) {
+    final text = _toStringValue(value).trim();
+    return text.isEmpty ? null : text;
+  }
+
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'user': {
         'name': name,
+        'email': email,
         'firstName': firstName,
         'lastName': lastName,
         'phone': phone,
+        'gender': gender,
+        'maritalStatus': maritalStatus,
+        'age': age,
         'address': address,
         'profileImage': profileImage,
       },
       'agentProfile': {
         'locationName': locationName,
+        'city': city,
+        'latitude': latitude,
+        'longitude': longitude,
         'cashLimit': cashLimit,
         'isVerified': isVerified,
+        'isBanned': isBanned,
         'available': available,
       }
     };
@@ -94,22 +154,154 @@ class AgentAuthResult {
 
   factory AgentAuthResult.fromJson(Map<String, dynamic> json) {
     return AgentAuthResult(
-      token: (json['token'] ?? '') as String,
+      token: AgentProfileData._toStringValue(json['token']),
       profile: AgentProfileData.fromJson(json),
     );
   }
 }
 
+class AgentLiveRequest {
+  final String id;
+  final String name;
+  final String location;
+  final String city;
+  final String email;
+  final String phone;
+  final String address;
+  final int amount;
+  final String status;
+  final String type;
+
+  const AgentLiveRequest({
+    required this.id,
+    required this.name,
+    required this.location,
+    required this.city,
+    required this.email,
+    required this.phone,
+    required this.address,
+    required this.amount,
+    required this.status,
+    this.type = 'Cash to UPI',
+  });
+
+  factory AgentLiveRequest.fromJson(Map<String, dynamic> json) {
+    final user = (json['user'] is Map<String, dynamic>)
+        ? json['user'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    final address = AgentProfileData._toStringValue(user['address']).trim();
+    final location = address.isNotEmpty ? address : 'Unknown area';
+    final city = AgentProfileData._toStringValue(user['city']).trim();
+    final email = AgentProfileData._toStringValue(user['email']).trim();
+    final phone = AgentProfileData._toStringValue(user['phone']).trim();
+
+    return AgentLiveRequest(
+      id: (json['id'] ?? '').toString(),
+        name: AgentProfileData._toStringValue(user['name']).trim().isNotEmpty
+          ? AgentProfileData._toStringValue(user['name']).trim()
+          : 'User',
+      location: location,
+      city: city,
+      email: email,
+      phone: phone,
+      address: address,
+      amount: AgentProfileData._toInt(json['amount']) ?? 0,
+      status: AgentProfileData._toStringValue(json['status']).trim().isNotEmpty
+          ? AgentProfileData._toStringValue(json['status']).trim()
+          : 'pending',
+        type: AgentProfileData._toStringValue(json['requestType']).trim().isNotEmpty
+          ? AgentProfileData._toStringValue(json['requestType']).trim()
+          : 'Cash to UPI',
+    );
+  }
+
+  AgentLiveRequest copyWith({
+    String? status,
+  }) {
+    return AgentLiveRequest(
+      id: id,
+      name: name,
+      location: location,
+      city: city,
+      email: email,
+      phone: phone,
+      address: address,
+      amount: amount,
+      status: status ?? this.status,
+      type: type,
+    );
+  }
+}
+
+class AgentTransactionHistoryItem {
+  final String id;
+  final String status;
+  final int amount;
+  final String requestType;
+  final String userId;
+  final String userName;
+  final String userPhone;
+  final String userEmail;
+  final String userAddress;
+  final String userCity;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final DateTime? completedAt;
+
+  const AgentTransactionHistoryItem({
+    required this.id,
+    required this.status,
+    required this.amount,
+    required this.requestType,
+    required this.userId,
+    required this.userName,
+    required this.userPhone,
+    required this.userEmail,
+    required this.userAddress,
+    required this.userCity,
+    this.createdAt,
+    this.updatedAt,
+    this.completedAt,
+  });
+
+  factory AgentTransactionHistoryItem.fromJson(Map<String, dynamic> json) {
+    final user = (json['user'] is Map<String, dynamic>)
+        ? json['user'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    return AgentTransactionHistoryItem(
+      id: (json['id'] ?? '').toString(),
+      status: AgentProfileData._toStringValue(json['status']).trim().toLowerCase(),
+      amount: AgentProfileData._toInt(json['amount']) ?? 0,
+        requestType: AgentProfileData._toStringValue(json['requestType']).trim().isEmpty
+          ? 'Cash to UPI'
+          : AgentProfileData._toStringValue(json['requestType']).trim(),
+      userId: AgentProfileData._toStringValue(json['userId']).trim(),
+      userName: AgentProfileData._toStringValue(user['name']).trim().isEmpty
+          ? 'User'
+          : AgentProfileData._toStringValue(user['name']).trim(),
+      userPhone: AgentProfileData._toStringValue(user['phone']).trim(),
+      userEmail: AgentProfileData._toStringValue(user['email']).trim(),
+      userAddress: AgentProfileData._toStringValue(user['address']).trim(),
+      userCity: AgentProfileData._toStringValue(user['city']).trim(),
+      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()),
+      updatedAt: DateTime.tryParse((json['updatedAt'] ?? '').toString()),
+      completedAt: DateTime.tryParse((json['completedAt'] ?? '').toString()),
+    );
+  }
+}
+
 class AgentService {
-  static const String _apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://192.168.1.108:4002',
-  );
+  static const String _apiBaseUrl = ApiConfig.baseUrl;
 
   static const String _registerPath = '$_apiBaseUrl/register-agent';
   static const String _loginPath = '$_apiBaseUrl/login-agent';
   static const String _agentProfilePath = '$_apiBaseUrl/agent/profile';
-  static const String _userProfilePath = '$_apiBaseUrl/user/profile';
+  static const String _agentManageProfilePath = '$_apiBaseUrl/agent/profile/manage';
+  static const String _agentLiveRequestsPath = '$_apiBaseUrl/agent/transactions/live-requests';
+  static const String _agentHistoryPath = '$_apiBaseUrl/agent/transactions/history';
+  static const String _transactionConfirmPath = '$_apiBaseUrl/transactions/confirm';
   static const String _agentTokenKey = 'agent_auth_token';
   static const String _cachedAgentProfileKey = 'cached_agent_profile';
 
@@ -125,6 +317,7 @@ class AgentService {
     required String address,
     required String shopName,
     required double cashLimit,
+    String? city,
     String? profileImage,
   }) async {
     final payload = {
@@ -140,6 +333,7 @@ class AgentService {
       'address': address,
       'profileImage': profileImage,
       'locationName': shopName.isNotEmpty ? shopName : address,
+      'city': city,
       'cashLimit': cashLimit,
     };
 
@@ -193,52 +387,62 @@ class AgentService {
   }
 
   static Future<void> updatePersonalProfile(Map<String, dynamic> data) async {
+    await manageProfile(user: data);
+  }
+
+  /// PATCH any fields on agent profile (e.g. city, locationName, cashLimit, available).
+  static Future<void> patchAgentProfile(Map<String, dynamic> data) async {
     final token = await getToken();
     if (token == null || token.isEmpty) {
       throw Exception('Agent is not logged in');
     }
-
-    final response = await http.put(
-      Uri.parse(_userProfilePath),
+    final response = await http.patch(
+      Uri.parse(_agentProfilePath),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode(data),
     );
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final profile = AgentProfileData.fromJson(body);
+      await _cacheProfile(profile);
+      return;
+    }
+    throw Exception(_readError(body, 'Failed to patch agent profile'));
+  }
+
+  static Future<AgentProfileData> manageProfile({
+    Map<String, dynamic>? user,
+    Map<String, dynamic>? agentProfile,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final payload = <String, dynamic>{};
+    if (user != null && user.isNotEmpty) payload['user'] = user;
+    if (agentProfile != null && agentProfile.isNotEmpty) payload['agentProfile'] = agentProfile;
+
+    final response = await http.patch(
+      Uri.parse(_agentManageProfilePath),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(payload),
+    );
 
     final body = _decodeBody(response);
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final cached = await getCachedProfile();
-      final updated = AgentProfileData(
-        name: [body['firstName'] as String?, body['lastName'] as String?]
-            .whereType<String>()
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .join(' ')
-            .trim()
-            .isNotEmpty
-            ? [body['firstName'] as String?, body['lastName'] as String?]
-                .whereType<String>()
-                .map((value) => value.trim())
-                .where((value) => value.isNotEmpty)
-                .join(' ')
-            : (cached?.name ?? 'Agent'),
-        firstName: body['firstName'] as String?,
-        lastName: body['lastName'] as String?,
-        phone: body['phone'] as String?,
-        address: body['address'] as String?,
-        profileImage: body['profileImage'] as String?,
-        locationName: cached?.locationName,
-        cashLimit: cached?.cashLimit,
-        isVerified: cached?.isVerified,
-        available: cached?.available,
-      );
+      final updated = AgentProfileData.fromJson(body);
       await _cacheProfile(updated);
-      return;
+      return updated;
     }
 
-    throw Exception(body['error'] ?? 'Failed to update agent profile');
+    throw Exception(_readError(body, 'Failed to update agent profile'));
   }
 
   static Future<void> updateAgentLocation({
@@ -266,25 +470,12 @@ class AgentService {
 
     final body = _decodeBody(response);
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final cached = await getCachedProfile();
-      if (cached == null) return;
-      final updated = AgentProfileData(
-        name: cached.name,
-        firstName: cached.firstName,
-        lastName: cached.lastName,
-        phone: cached.phone,
-        address: cached.address,
-        profileImage: cached.profileImage,
-        locationName: (body['locationName'] as String?) ?? locationName,
-        cashLimit: cached.cashLimit,
-        isVerified: cached.isVerified,
-        available: cached.available,
-      );
+      final updated = AgentProfileData.fromJson(body);
       await _cacheProfile(updated);
       return;
     }
 
-    throw Exception(body['error'] ?? 'Failed to update agent location');
+    throw Exception(_readError(body, 'Failed to update agent location'));
   }
 
   static Future<AgentProfileData?> getCachedProfile() async {
@@ -299,6 +490,147 @@ class AgentService {
       await prefs.remove(_cachedAgentProfileKey);
       return null;
     }
+  }
+
+  static Future<List<AgentLiveRequest>> getLiveRequests({int limit = 20}) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final uri = Uri.parse(_agentLiveRequestsPath).replace(
+      queryParameters: {'limit': '$limit'},
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final items = body['items'];
+      if (items is List) {
+        return items
+            .whereType<Map<String, dynamic>>()
+            .map(AgentLiveRequest.fromJson)
+            .toList();
+      }
+      return const <AgentLiveRequest>[];
+    }
+
+    throw Exception(_readError(body, 'Failed to load live requests'));
+  }
+
+  static Future<List<AgentTransactionHistoryItem>> getTransactionHistory({int limit = 50}) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final uri = Uri.parse(_agentHistoryPath).replace(
+      queryParameters: {'limit': '$limit'},
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final items = body['items'];
+      if (items is List) {
+        return items
+            .whereType<Map<String, dynamic>>()
+            .map(AgentTransactionHistoryItem.fromJson)
+            .toList();
+      }
+      return const <AgentTransactionHistoryItem>[];
+    }
+
+    throw Exception(_readError(body, 'Failed to load transaction history'));
+  }
+
+  static Future<void> rejectLiveRequest(String requestId) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final uri = Uri.parse('$_agentLiveRequestsPath/$requestId/reject');
+    final response = await http.patch(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw Exception(_readError(body, 'Failed to reject request'));
+  }
+
+  static Future<void> approveLiveRequest(String requestId) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final uri = Uri.parse('$_agentLiveRequestsPath/$requestId/approve');
+    final response = await http.patch(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw Exception(_readError(body, 'Failed to approve request'));
+  }
+
+  static Future<void> verifyTransactionOtp({
+    required String transactionId,
+    required String otp,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final response = await http.post(
+      Uri.parse(_transactionConfirmPath),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'transactionId': transactionId,
+        'otp': otp,
+      }),
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw Exception(_readError(body, 'Failed to verify OTP'));
   }
 
   static Future<String?> getToken() async {
@@ -327,7 +659,7 @@ class AgentService {
       return body;
     }
 
-    throw Exception(body['error'] ?? 'Request failed');
+    throw Exception(_readError(body, 'Request failed'));
   }
 
   static Map<String, dynamic> _decodeBody(http.Response response) {
@@ -336,6 +668,30 @@ class AgentService {
     } catch (_) {
       return {'error': 'Invalid server response'};
     }
+  }
+
+  static String _readError(Map<String, dynamic> body, String fallback) {
+    final error = body['error'];
+    if (error is String && error.trim().isNotEmpty) {
+      return error;
+    }
+    if (error is Map<String, dynamic>) {
+      final details = error['details'];
+      if (details is List && details.isNotEmpty) {
+        final first = details.first;
+        if (first is Map<String, dynamic>) {
+          final detailMessage = first['message'];
+          if (detailMessage is String && detailMessage.trim().isNotEmpty) {
+            return detailMessage;
+          }
+        }
+      }
+      final message = error['message'];
+      if (message is String && message.trim().isNotEmpty) {
+        return message;
+      }
+    }
+    return fallback;
   }
 
   static Future<void> _saveToken(String token) async {

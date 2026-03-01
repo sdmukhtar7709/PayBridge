@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../services/location_service.dart';
 import '../../services/user_service.dart';
+import 'available_agents_screen.dart';
+import 'my_requests_screen.dart';
 
 class UpiToCashScreen extends StatefulWidget {
   const UpiToCashScreen({super.key});
@@ -19,6 +21,9 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
   String _distance = '1-2 km';
   bool _useCurrentLocation = true;
   bool _isFetchingLocation = false;
+  double? _latitude;
+  double? _longitude;
+  _LastAvailabilityArgs? _lastAvailability;
 
   @override
   void dispose() {
@@ -46,6 +51,8 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
       setState(() {
         _useCurrentLocation = true;
         _cityController.text = location.city;
+        _latitude = location.latitude;
+        _longitude = location.longitude;
       });
     } catch (error) {
       if (!mounted) return;
@@ -102,15 +109,62 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  // TODO: Call backend API to fetch nearby agents based on distance, city, and location
-                  // TODO: Show agent list and map view after backend response
-                  // TODO: Enable routing after agent approval
-                  debugPrint('Check availability tapped');
+                  final city = _cityController.text.trim();
+                  final amount = _amountController.text.trim();
+                  if (amount.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter an amount')),
+                    );
+                    return;
+                  }
+                  // Map distance string to km number
+                  final radiusMap = {
+                    '1-2 km': 2.0,
+                    '2-5 km': 5.0,
+                    '5-10 km': 10.0,
+                  };
+                  final radius = radiusMap[_distance] ?? 5.0;
+                  final latitude = _useCurrentLocation ? _latitude : null;
+                  final longitude = _useCurrentLocation ? _longitude : null;
+                  final args = _LastAvailabilityArgs(
+                    city: city.isEmpty ? 'your area' : city,
+                    latitude: latitude,
+                    longitude: longitude,
+                    radiusKm: radius,
+                    transactionType: 'UPI → Cash',
+                    amount: amount,
+                  );
+                  setState(() => _lastAvailability = args);
+                  _openAvailableAgents(args);
                 },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
                 ),
                 child: const Text('Check Availability'),
+              ),
+              if (_lastAvailability != null) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => _openAvailableAgents(_lastAvailability!),
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Regain Available Agents Screen'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MyRequestsScreen()),
+                  );
+                },
+                icon: const Icon(Icons.history),
+                label: const Text('View My Raised Requests'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                ),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -119,6 +173,21 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAvailableAgents(_LastAvailabilityArgs args) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AvailableAgentsScreen(
+          city: args.city,
+          latitude: args.latitude,
+          longitude: args.longitude,
+          radiusKm: args.radiusKm,
+          transactionType: args.transactionType,
+          amount: args.amount,
         ),
       ),
     );
@@ -199,11 +268,33 @@ class _UpiToCashScreenState extends State<UpiToCashScreen> {
                 await _useDeviceLocation();
                 return;
               }
-              setState(() => _useCurrentLocation = false);
+              setState(() {
+                _useCurrentLocation = false;
+                _latitude = null;
+                _longitude = null;
+              });
             },
           ),
         ],
       ),
     );
   }
+}
+
+class _LastAvailabilityArgs {
+  final String city;
+  final double? latitude;
+  final double? longitude;
+  final double radiusKm;
+  final String transactionType;
+  final String amount;
+
+  const _LastAvailabilityArgs({
+    required this.city,
+    required this.latitude,
+    required this.longitude,
+    required this.radiusKm,
+    required this.transactionType,
+    required this.amount,
+  });
 }

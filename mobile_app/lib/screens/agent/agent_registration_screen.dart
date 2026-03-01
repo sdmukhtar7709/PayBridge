@@ -26,6 +26,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
   final _shopNameController = TextEditingController();
   final _cashLimitController = TextEditingController();
   final _addressController = TextEditingController();
+  final _cityController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   final LocationService _locationService = LocationService();
 
@@ -87,6 +88,9 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
     if (_addressController.text.trim().isEmpty && (profile.address ?? '').trim().isNotEmpty) {
       _addressController.text = profile.address!.trim();
     }
+    if (_cityController.text.trim().isEmpty && (profile.city ?? '').trim().isNotEmpty) {
+      _cityController.text = profile.city!.trim();
+    }
     if (_shopNameController.text.trim().isEmpty && (profile.locationName ?? '').trim().isNotEmpty) {
       _shopNameController.text = profile.locationName!.trim();
     }
@@ -113,6 +117,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
     _shopNameController.dispose();
     _cashLimitController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
     super.dispose();
   }
 
@@ -126,6 +131,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
     final password = _passwordController.text;
     final shopName = _shopNameController.text.trim();
     final address = _addressController.text.trim();
+    final city = _cityController.text.trim();
     final cashLimitRaw = _cashLimitController.text.trim();
 
     if (firstName.isEmpty || lastName.isEmpty) {
@@ -143,6 +149,12 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
     if (mobile.isEmpty || address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mobile and address are required')),
+      );
+      return;
+    }
+    if (city.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('City is required for agent availability')),
       );
       return;
     }
@@ -172,6 +184,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
           'address': address,
           'profileImage': _profileImageData ?? '',
         });
+        await AgentService.patchAgentProfile({'city': city}).catchError((_) {});
       } else {
         await AgentService.registerAgent(
           email: email,
@@ -185,6 +198,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
           address: address,
           shopName: shopName,
           cashLimit: cashLimit,
+          city: city,
           profileImage: _profileImageData,
         );
       }
@@ -313,6 +327,12 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
                     icon: Icons.location_on_outlined,
                     keyboardType: TextInputType.multiline,
                     maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  _pillField(
+                    controller: _cityController,
+                    hint: 'City (e.g. Pune)',
+                    icon: Icons.location_city_outlined,
                   ),
                   const SizedBox(height: 12),
                   _profilePhotoPicker(),
