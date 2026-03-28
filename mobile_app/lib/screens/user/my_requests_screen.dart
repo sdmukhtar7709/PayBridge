@@ -6,18 +6,21 @@ import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
 import '../../services/auth_service.dart';
+import '../../services/local_notification_service.dart';
 import '../../services/request_type_store.dart';
 import 'user_transaction_detail_screen.dart';
 
 class MyRequestsScreen extends StatefulWidget {
-  const MyRequestsScreen({super.key});
+  final String? initialRequestId;
+
+  const MyRequestsScreen({super.key, this.initialRequestId});
 
   @override
   State<MyRequestsScreen> createState() => _MyRequestsScreenState();
 }
 
 class _MyRequestsScreenState extends State<MyRequestsScreen> {
-  static const String _apiBaseUrl = ApiConfig.baseUrl;
+  static final String _apiBaseUrl = ApiConfig.baseUrl;
 
   bool _isLoading = true;
   String? _error;
@@ -25,6 +28,9 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
   String _statusFilter = 'confirmed';
   DateTime? _lastSyncedAt;
   Timer? _refreshTimer;
+  String? _archivingId;
+  bool _openedInitialRequest = false;
+  final Map<String, String> _lastNotifiedStatusById = {};
 
   @override
   void initState() {
@@ -88,6 +94,25 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
         _items = list;
         _lastSyncedAt = DateTime.now();
       });
+
+      _notifyStatusChanges(list);
+
+      if (!_openedInitialRequest && widget.initialRequestId != null) {
+        final target = list.firstWhere(
+          (item) => item.id == widget.initialRequestId,
+          orElse: () => list.isNotEmpty ? list.first : _UserRequestItem.empty(),
+        );
+        if (target.id.isNotEmpty && mounted) {
+          _openedInitialRequest = true;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => UserTransactionDetailScreen(
+                item: target,
+              ),
+            ),
+          );
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -95,6 +120,143 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
       if (mounted && !silent) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  void _notifyStatusChanges(List<_UserRequestItem> items) {
+    for (final item in items) {
+      final previous = _lastNotifiedStatusById[item.id];
+      _lastNotifiedStatusById[item.id] = item.status;
+      if (previous == null || previous == item.status) continue;
+
+      final title = _statusTitle(item.status);
+      final message = _statusMessage(item);
+      if (title.isEmpty || message.isEmpty) continue;
+
+      LocalNotificationService.instance.showUserStatusNotification(
+        title: title,
+        message: message,
+        payload: _notificationPayload(item),
+      );
+    }
+  }
+
+  String _notificationPayload(_UserRequestItem item) {
+    if (item.status == 'approved') {
+      return 'user_approved:${item.id}';
+    }
+    return 'user_request:${item.id}';
+  }
+
+  String _statusTitle(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Request Pending';
+      case 'approved':
+        return 'Request Approved';
+      case 'rejected':
+        return 'Request Rejected';
+      case 'cancelled':
+        return 'Request Cancelled';
+      case 'confirmed':
+        return 'Transaction Completed';
+      default:
+        return '';
+    }
+  }
+
+  String _statusMessage(_UserRequestItem item) {
+    switch (item.status) {
+      case 'pending':
+        return 'Your request is pending with ${item.agentName}.';
+      case 'approved':
+        return 'Agent approved your request. OTP is ready.';
+      case 'rejected':
+        return 'Agent rejected your request. Try another agent.';
+      case 'cancelled':
+        return 'Your request has been cancelled.';
+      case 'confirmed':
+        return 'Your transaction is completed successfully.';
+      default:
+        return '';
+    }
+  }
+
+  Future<void> _archiveRequest(_UserRequestItem item) async {
+    if (_archivingId != null) return;
+    setState(() => _archivingId = item.id);
+
+    try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Please login first');
+      }
+
+      final response = await http.patch(
+        Uri.parse('$_apiBaseUrl/transactions/requests/${item.id}/archive'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final body = _decodeBody(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 404) {
+          if (!mounted) return;
+          setState(() {
+            _items = _items.where((entry) => entry.id != item.id).toList();
+          });
+          await RequestTypeStore.removeType(item.id);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Request cleared from your list')),
+          );
+          return;
+        }
+        throw Exception(_readError(body, 'Failed to clear request'));
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _items = _items.where((entry) => entry.id != item.id).toList();
+      });
+      await RequestTypeStore.removeType(item.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request cleared from your list')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _archivingId = null);
+    }
+  }
+
+  Future<void> _confirmArchiveDialog(_UserRequestItem item) async {
+    final shouldArchive = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Clear this request?'),
+          content: const Text('This will remove the request from your list.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldArchive == true) {
+      await _archiveRequest(item);
     }
   }
 
@@ -235,21 +397,26 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                                           ],
                                         ),
                                       ),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            '₹${item.amount}',
-                                            style: const TextStyle(fontWeight: FontWeight.w700),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            item.status.toUpperCase(),
-                                            style: TextStyle(
-                                              color: statusColor,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                '₹${item.amount}',
+                                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                item.status.toUpperCase(),
+                                                style: TextStyle(
+                                                  color: statusColor,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -404,6 +571,24 @@ class _UserRequestItem {
       createdAt: createdAt,
       updatedAt: updatedAt,
       completedAt: completedAt,
+    );
+  }
+
+  static _UserRequestItem empty() {
+    return _UserRequestItem(
+      id: '',
+      amount: 0,
+      status: '',
+      requestType: '',
+      agentName: '',
+      agentPhone: '',
+      agentEmail: '',
+      createdAt: null,
+      updatedAt: null,
+      completedAt: null,
+      shopName: '',
+      address: '',
+      city: '',
     );
   }
 }

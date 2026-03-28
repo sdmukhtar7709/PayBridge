@@ -7,14 +7,13 @@ import { LoginInput, RegisterInput } from "../schemas/auth.schema.js";
 
 const SALT_ROUNDS = 10;
 
-function authValidationError(path: "email" | "password", message: string) {
+function authValidationError() {
   return {
     statusCode: 401,
     body: {
       error: {
         code: "INVALID_CREDENTIALS",
-        message: "Invalid login credentials",
-        details: [{ path, message }],
+        message: "Username or password wrong",
       },
     },
   };
@@ -70,12 +69,12 @@ export async function loginUser(data: LoginInput) {
   const email = data.email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || user.role !== "user") {
-    throw authValidationError("email", "Email not found");
+    throw authValidationError();
   }
 
   const validPassword = await bcrypt.compare(data.password, user.passwordHash);
   if (!validPassword) {
-    throw authValidationError("password", "Password is incorrect");
+    throw authValidationError();
   }
 
   const token = signToken({ id: user.id, email: user.email, role: user.role });

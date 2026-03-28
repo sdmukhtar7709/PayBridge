@@ -143,7 +143,15 @@ model AgentTransaction {
   userId  String // requester (customer)
   agentId String // agentProfile.id
 
-  otp         String
-  otpExpires  DateTime?
+  requestOtp        String
+  requestOtpExpires DateTime?
+  approvedAt        DateTime?
+
+  userConfirmOtp  String?
+  agentConfirmOtp String?
+  confirmOtpExpires DateTime?
+  userConfirmedAt DateTime?
+  agentConfirmedAt DateTime?
+
   completedAt DateTime?
 }

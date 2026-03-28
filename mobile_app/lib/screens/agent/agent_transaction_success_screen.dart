@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'agent_transactions_screen.dart';
+
 class AgentTransactionSuccessScreen extends StatelessWidget {
   final String userName;
   final int amount;
@@ -55,7 +57,11 @@ class AgentTransactionSuccessScreen extends StatelessWidget {
             ),
             const Spacer(),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const AgentTransactionsScreen()),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff16A34A),
                 minimumSize: const Size(double.infinity, 48),

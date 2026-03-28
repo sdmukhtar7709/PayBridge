@@ -1,8 +1,6 @@
 import prisma from "../lib/prisma.js";
 import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth.js";
-import { sendOtpSms } from "../lib/sms.js"; // Make sure you have this utility!
-import { sendOtpEmail } from "../lib/email.js";
 
 // Extend Express Request interface to include 'user'
 declare global {
@@ -19,7 +17,7 @@ declare global {
 
 /**
  * POST /transactions/request
- * User requests cash from an agent. Generates OTP with expiry, sends SMS if phone present.
+ * User requests cash from an agent. OTP is generated only after agent approval.
  */
 export async function createTransaction(req: Request, res: Response) {
   const { agentId, amount } = req.body;
@@ -36,10 +34,9 @@ export async function createTransaction(req: Request, res: Response) {
   if (!agent) {
     return res.status(400).json({ error: "Agent not available" });
   }
-
-  // Generate 4-digit OTP and expiry (10 minutes)
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min from now
+  if (!agent.available) {
+    return res.status(400).json({ error: "Agent is offline" });
+  }
 
   const txn = await prisma.agentTransaction.create({
     data: {
@@ -47,65 +44,95 @@ export async function createTransaction(req: Request, res: Response) {
       amount,
       userId,
       agentId: agent.id,
-      otp,
-      otpExpires: otpExpiry,
+      requestOtp: "",
+      requestOtpExpires: null,
     }
   });
-
-  // Find user with phone number for SMS
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { phone: true, email: true }
-  });
-  if (user && user.phone) {
-    try {
-      await sendOtpSms(user.phone, otp, txn.id);
-    } catch (err) {
-      // Log SMS error, do not fail transaction for user
-      console.error("Failed to send OTP SMS:", err);
-    }
-  }
-  if (user && user.email) {
-    await sendOtpEmail(user.email, otp, txn.id);
-  }
-  // Log OTP for server-side debugging (never send real OTP to client!)
-  console.log(`OTP for transaction ${txn.id}: ${otp} (expires ${otpExpiry.toISOString()})`);
 
   res.json({
     id: txn.id,
     status: txn.status,
-    otp: "SENT" // Never send real OTP to client!
+    otp: "PENDING" // OTP is generated after agent approval
   });
 }
 
 /**
- * POST /transactions/confirm
- * Agent (or user) confirms transaction by OTP.
+ * POST /transactions/confirm-user
+ * User confirms transaction by entering AGENT OTP.
  */
-export async function confirmTransaction(req: AuthRequest, res: Response) {
+export async function confirmTransactionByUser(req: AuthRequest, res: Response) {
   const { transactionId, otp } = req.body;
 
-  // Find the transaction
   const txn = await prisma.agentTransaction.findUnique({
     where: { id: transactionId },
     select: {
       id: true,
       status: true,
-      amount: true,
       userId: true,
       agentId: true,
-      otp: true,
-      completedAt: true,
-      otpExpires: true // Ensure otpExpires is selected
-    }
+      agentConfirmOtp: true,
+      userConfirmedAt: true,
+      agentConfirmedAt: true,
+      confirmOtpExpires: true,
+    },
   });
-  if (!txn) return res.status(404).json({ error: "Transaction not found" });
-  if (txn.status !== "pending" && txn.status !== "approved") {
-    return res.status(400).json({ error: "Transaction already completed or cancelled" });
-  }
-  if (txn.otpExpires && new Date() > txn.otpExpires) return res.status(400).json({ error: "OTP expired" });
 
-  // AGENT MUST MATCH by AgentProfile.id
+  if (!txn) return res.status(404).json({ error: "Transaction not found" });
+  if (txn.userId !== req.user.id) {
+    return res.status(403).json({ error: "You are not assigned to this request" });
+  }
+  if (txn.status !== "approved") {
+    return res.status(400).json({ error: "Transaction is not approved yet" });
+  }
+  if (txn.confirmOtpExpires && new Date() > txn.confirmOtpExpires) {
+    return res.status(400).json({ error: "OTP expired" });
+  }
+  if (!txn.agentConfirmOtp || txn.agentConfirmOtp !== otp) {
+    return res.status(400).json({ error: "Invalid OTP" });
+  }
+
+  const updated = await prisma.agentTransaction.update({
+    where: { id: transactionId },
+    data: {
+      userConfirmedAt: txn.userConfirmedAt ?? new Date(),
+      status: txn.agentConfirmedAt ? "confirmed" : txn.status,
+      completedAt: txn.agentConfirmedAt ? new Date() : null,
+    },
+  });
+
+  return res.json({
+    id: updated.id,
+    status: updated.status,
+    completedAt: updated.completedAt,
+  });
+}
+
+/**
+ * POST /transactions/confirm-agent
+ * Agent confirms transaction by entering USER OTP.
+ */
+export async function confirmTransactionByAgent(req: AuthRequest, res: Response) {
+  const { transactionId, otp } = req.body;
+
+  const txn = await prisma.agentTransaction.findUnique({
+    where: { id: transactionId },
+    select: {
+      id: true,
+      status: true,
+      userId: true,
+      agentId: true,
+      userConfirmOtp: true,
+      userConfirmedAt: true,
+      agentConfirmedAt: true,
+      confirmOtpExpires: true,
+    },
+  });
+
+  if (!txn) return res.status(404).json({ error: "Transaction not found" });
+  if (txn.status !== "approved") {
+    return res.status(400).json({ error: "Transaction is not approved yet" });
+  }
+
   const agentProfile = await prisma.agentProfile.findUnique({
     where: { userId: req.user.id },
     select: { id: true },
@@ -114,21 +141,23 @@ export async function confirmTransaction(req: AuthRequest, res: Response) {
   if (!agentProfile || txn.agentId !== agentProfile.id) {
     return res.status(403).json({ error: "You are not the assigned agent" });
   }
+  if (txn.confirmOtpExpires && new Date() > txn.confirmOtpExpires) {
+    return res.status(400).json({ error: "OTP expired" });
+  }
+  if (!txn.userConfirmOtp || txn.userConfirmOtp !== otp) {
+    return res.status(400).json({ error: "Invalid OTP" });
+  }
 
-  if (txn.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
-
-  // TODO: Move funds here (decrement agent's cash limit if needed, increment user's balance etc.)
-
-  // Mark transaction as completed
   const updated = await prisma.agentTransaction.update({
     where: { id: transactionId },
     data: {
-      status: "confirmed",
-      completedAt: new Date(),
-    }
+      agentConfirmedAt: txn.agentConfirmedAt ?? new Date(),
+      status: txn.userConfirmedAt ? "confirmed" : txn.status,
+      completedAt: txn.userConfirmedAt ? new Date() : null,
+    },
   });
 
-  res.json({
+  return res.json({
     id: updated.id,
     status: updated.status,
     completedAt: updated.completedAt,
@@ -148,7 +177,11 @@ export async function getTransactionStatus(req: AuthRequest, res: Response) {
       id: true,
       status: true,
       amount: true,
-      otp: true,
+      requestOtp: true,
+      userConfirmOtp: true,
+      approvedAt: true,
+      agentConfirmedAt: true,
+      userConfirmedAt: true,
       userId: true,
       agentId: true,
       createdAt: true,
@@ -181,7 +214,9 @@ export async function getTransactionStatus(req: AuthRequest, res: Response) {
 
   return res.json({
     ...txn,
-    otp: txn.status === "approved" || txn.status === "confirmed" ? txn.otp : null,
+    requestOtp: txn.status === "approved" || txn.status === "confirmed" ? txn.requestOtp : null,
+    userConfirmOtp: txn.status === "approved" || txn.status === "confirmed" ? txn.userConfirmOtp : null,
+    approvedAt: txn.approvedAt,
     agent,
   });
 }
@@ -225,9 +260,11 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
   const status = typeof req.query.status === "string" ? req.query.status.trim().toLowerCase() : "";
 
-  const where: { userId: string; status?: string } = { userId: req.user.id };
+  const where: any = { userId: req.user.id };
   if (status) {
     where.status = status;
+  } else {
+    where.status = { not: "archived" };
   }
 
   const items = await prisma.agentTransaction.findMany({
@@ -237,7 +274,11 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
     select: {
       id: true,
       status: true,
-      otp: true,
+      requestOtp: true,
+      userConfirmOtp: true,
+      approvedAt: true,
+      userConfirmedAt: true,
+      agentConfirmedAt: true,
       amount: true,
       createdAt: true,
       updatedAt: true,
@@ -269,9 +310,58 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
 
   const enriched = items.map((item) => ({
     ...item,
-    otp: item.status === "approved" || item.status === "confirmed" ? item.otp : null,
+    requestOtp: item.status === "approved" || item.status === "confirmed" ? item.requestOtp : null,
+    userConfirmOtp:
+      item.status === "approved" || item.status === "confirmed" ? item.userConfirmOtp : null,
+    approvedAt: item.approvedAt,
     agent: agentMap.get(item.agentId) ?? null,
   }));
 
   return res.json({ items: enriched });
+}
+
+/**
+ * DELETE /transactions/requests/clear-all
+ * User deletes all own requests.
+ */
+export async function clearAllUserRequests(req: AuthRequest, res: Response) {
+  const result = await prisma.agentTransaction.deleteMany({
+    where: { userId: req.user.id },
+  });
+
+  return res.json({ deleted: result.count });
+}
+
+/**
+ * PATCH /transactions/requests/:id/archive
+ * User archives own request (removes from default list).
+ */
+export async function archiveUserRequest(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+
+  const txn = await prisma.agentTransaction.findUnique({
+    where: { id },
+    select: { id: true, status: true, userId: true },
+  });
+
+  if (!txn) {
+    return res.status(404).json({ error: "Transaction not found" });
+  }
+  if (txn.userId !== req.user.id) {
+    return res.status(403).json({ error: "You are not allowed to archive this request" });
+  }
+  if (txn.status === "pending") {
+    return res.status(400).json({ error: "Pending request cannot be archived" });
+  }
+  if (txn.status === "archived") {
+    return res.json({ id: txn.id, status: txn.status });
+  }
+
+  const updated = await prisma.agentTransaction.update({
+    where: { id },
+    data: { status: "archived" },
+    select: { id: true, status: true },
+  });
+
+  return res.json(updated);
 }

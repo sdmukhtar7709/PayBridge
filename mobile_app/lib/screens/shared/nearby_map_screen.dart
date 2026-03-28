@@ -10,11 +10,13 @@ import '../../config/api_config.dart';
 class NearbyMapScreen extends StatefulWidget {
   final LatLng initialCenter;
   final Set<Marker> markers;
+  final bool autoLoadNearby;
 
   const NearbyMapScreen({
     super.key,
     required this.initialCenter,
     required this.markers,
+    this.autoLoadNearby = false,
   });
 
   @override
@@ -22,7 +24,7 @@ class NearbyMapScreen extends StatefulWidget {
 }
 
 class _NearbyMapScreenState extends State<NearbyMapScreen> {
-  static const String _apiBaseUrl = ApiConfig.baseUrl;
+  static final String _apiBaseUrl = ApiConfig.baseUrl;
 
   GoogleMapController? _controller;
   final TextEditingController _searchController = TextEditingController();
@@ -35,6 +37,13 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
   void initState() {
     super.initState();
     _mapMarkers = Set<Marker>.from(widget.markers);
+    if (widget.autoLoadNearby) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadNearbyBanksAndAtms();
+        }
+      });
+    }
   }
 
   @override
@@ -237,15 +246,7 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
         }
       }
 
-      final nextMarkers = <Marker>{
-        Marker(
-          markerId: const MarkerId('current_location'),
-          position: widget.initialCenter,
-          infoWindow: const InfoWindow(title: 'You are here'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueAzure),
-        ),
-      };
+      final nextMarkers = <Marker>{};
 
       for (final item in results) {
         if (item is! Map<String, dynamic>) continue;

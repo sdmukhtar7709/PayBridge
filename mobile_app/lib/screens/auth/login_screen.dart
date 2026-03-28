@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoggingIn = false;
   static const Color _primary = Color(0xFF5E4AE3); // Soft purple accent
   static const Color _bg = Color(0xFFF7F2FF); // Light lavender background
+  static final RegExp _emailPattern = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$");
 
   @override
   void dispose() {
@@ -34,6 +35,20 @@ class _LoginScreenState extends State<LoginScreen> {
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter both email and password.')),
+      );
+      return;
+    }
+
+    if (!_emailPattern.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address.')),
+      );
+      return;
+    }
+
+    if (password.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password must be at least 8 characters.')),
       );
       return;
     }

@@ -18,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isRegistering = false;
   static const Color _primary = Color(0xFF5E4AE3);
   static const Color _bg = Color(0xFFF7F2FF);
+  static final RegExp _emailPattern = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$");
 
   @override
   void dispose() {
@@ -35,6 +36,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields.')),
+      );
+      return;
+    }
+
+    if (!_emailPattern.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address.')),
+      );
+      return;
+    }
+
+    if (password.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password must be at least 8 characters.')),
       );
       return;
     }

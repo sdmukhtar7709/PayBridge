@@ -1,5 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
+import { sendOtpSms } from "../lib/sms.js";
+import { sendOtpEmail } from "../lib/email.js";
 import { requireAuth, AuthRequest } from "../middleware/auth.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { validate } from "../middleware/validate.js";
@@ -54,7 +56,7 @@ function deriveCity(address?: string | null): string | null {
   return parts[parts.length - 1] ?? null;
 }
 
-// 🔐 AGENT-ONLY: List live pending/approved user requests for this agent
+// 🔐 AGENT-ONLY: List live requests for this agent (includes confirmed for realtime completion)
 router.get(
   "/live-requests",
   requireAuth,
@@ -75,10 +77,23 @@ router.get(
     const txItems = await prisma.agentTransaction.findMany({
       where: {
         agentId: agentProfile.id,
-        status: { in: ["pending", "approved"] },
+        status: { in: ["pending", "approved", "confirmed"] },
       },
       orderBy: { createdAt: "desc" },
       take: limit,
+      select: {
+        id: true,
+        status: true,
+        amount: true,
+        userId: true,
+        agentId: true,
+        createdAt: true,
+        updatedAt: true,
+        approvedAt: true,
+        agentConfirmOtp: true,
+        userConfirmedAt: true,
+        agentConfirmedAt: true,
+      },
     });
 
     const userIds = Array.from(new Set(txItems.map((item) => item.userId)));
@@ -99,6 +114,7 @@ router.get(
       const user = userMap.get(item.userId);
       return {
         ...item,
+        agentConfirmOtp: item.status === "approved" ? item.agentConfirmOtp : null,
         user: user
           ? {
               ...user,
@@ -109,6 +125,29 @@ router.get(
     });
 
     return res.json({ items });
+  }
+);
+
+// 🔐 AGENT-ONLY: Delete all requests for current agent
+router.delete(
+  "/requests/clear-all",
+  requireAuth,
+  requireRole(["agent"]),
+  async (req: AuthRequest, res) => {
+    const agentProfile = await prisma.agentProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!agentProfile) {
+      return res.status(404).json({ error: "Agent profile not found" });
+    }
+
+    const result = await prisma.agentTransaction.deleteMany({
+      where: { agentId: agentProfile.id },
+    });
+
+    return res.json({ deleted: result.count });
   }
 );
 
@@ -140,16 +179,121 @@ router.patch(
       return res.status(400).json({ error: "Only pending requests can be approved" });
     }
 
+    const requestOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const requestOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
     const updated = await prisma.agentTransaction.update({
       where: { id },
       data: {
         status: "approved",
+        requestOtp,
+        requestOtpExpires: requestOtpExpiry,
       },
       select: {
         id: true,
         status: true,
       },
     });
+
+    const user = await prisma.user.findUnique({
+      where: { id: existing.userId },
+      select: { phone: true, email: true },
+    });
+
+    if (user?.phone) {
+      try {
+        await sendOtpSms(user.phone, requestOtp, updated.id);
+      } catch (error) {
+        console.error("Failed to send request OTP SMS:", error);
+      }
+    }
+    if (user?.email) {
+      try {
+        await sendOtpEmail(user.email, requestOtp, updated.id);
+      } catch (error) {
+        console.error("Failed to send request OTP email:", error);
+      }
+    }
+    return res.json(updated);
+  }
+);
+
+router.post(
+  "/live-requests/:id/verify-request-otp",
+  requireAuth,
+  requireRole(["agent"]),
+  async (req: AuthRequest, res) => {
+    const { id } = req.params;
+    const otp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
+
+    const agentProfile = await prisma.agentProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!agentProfile) {
+      return res.status(404).json({ error: "Agent profile not found" });
+    }
+
+    const existing = await prisma.agentTransaction.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    if (existing.agentId !== agentProfile.id) {
+      return res.status(403).json({ error: "You are not assigned to this request" });
+    }
+    if (existing.status !== "approved") {
+      return res.status(400).json({ error: "Request must be approved first" });
+    }
+    if (!otp || otp.length !== 4) {
+      return res.status(400).json({ error: "OTP required" });
+    }
+    if (existing.requestOtpExpires && new Date() > existing.requestOtpExpires) {
+      return res.status(400).json({ error: "OTP expired" });
+    }
+    if (existing.requestOtp !== otp) {
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
+
+    const userConfirmOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const agentConfirmOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const confirmExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    const updated = await prisma.agentTransaction.update({
+      where: { id },
+      data: {
+        approvedAt: new Date(),
+        userConfirmOtp,
+        agentConfirmOtp,
+        confirmOtpExpires: confirmExpiry,
+      },
+      select: {
+        id: true,
+        status: true,
+        approvedAt: true,
+        agentConfirmOtp: true,
+      },
+    });
+
+    const user = await prisma.user.findUnique({
+      where: { id: existing.userId },
+      select: { phone: true, email: true },
+    });
+
+    if (user?.phone) {
+      try {
+        await sendOtpSms(user.phone, userConfirmOtp, updated.id);
+      } catch (error) {
+        console.error("Failed to send user OTP SMS:", error);
+      }
+    }
+    if (user?.email) {
+      try {
+        await sendOtpEmail(user.email, userConfirmOtp, updated.id);
+      } catch (error) {
+        console.error("Failed to send user OTP email:", error);
+      }
+    }
 
     return res.json(updated);
   }
@@ -188,6 +332,47 @@ router.patch(
     });
 
     return res.json({ id: updated.id, status: updated.status });
+  }
+);
+
+// 🔐 AGENT-ONLY: Archive an approved live request (hide from agent panel)
+router.patch(
+  "/live-requests/:id/archive",
+  requireAuth,
+  requireRole(["agent"]),
+  async (req: AuthRequest, res) => {
+    const { id } = req.params;
+
+    const agentProfile = await prisma.agentProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!agentProfile) {
+      return res.status(404).json({ error: "Agent profile not found" });
+    }
+
+    const existing = await prisma.agentTransaction.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    if (existing.agentId !== agentProfile.id) {
+      return res.status(403).json({ error: "You are not assigned to this request" });
+    }
+    if (existing.status === "archived") {
+      return res.json({ id: existing.id, status: existing.status });
+    }
+    if (existing.status !== "approved") {
+      return res.status(400).json({ error: "Only approved requests can be archived" });
+    }
+
+    const updated = await prisma.agentTransaction.update({
+      where: { id },
+      data: { status: "archived" },
+      select: { id: true, status: true },
+    });
+
+    return res.json(updated);
   }
 );
 

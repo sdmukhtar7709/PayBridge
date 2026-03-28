@@ -60,8 +60,8 @@ class User {
 }
 
 class UserService {
-  static const String _apiBaseUrl = ApiConfig.baseUrl;
-  static const String _profilePath = '$_apiBaseUrl/user/profile';
+  static final String _apiBaseUrl = ApiConfig.baseUrl;
+  static final String _profilePath = '$_apiBaseUrl/user/profile';
   static const String _cachedProfileKey = 'cached_user_profile';
 
   Future<User> getProfile() async {

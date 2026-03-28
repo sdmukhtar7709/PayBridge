@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import '../../services/agent_service.dart';
+import '../../services/local_notification_service.dart';
 import '../../services/location_service.dart';
 import 'agent_profile_screen.dart';
 import 'agent_transaction_success_screen.dart';
@@ -12,13 +13,15 @@ import 'agent_transactions_screen.dart';
 import '../shared/nearby_map_screen.dart';
 
 class AgentHomeScreen extends StatefulWidget {
-  const AgentHomeScreen({super.key});
+  final bool openLiveRequestsOnLoad;
+
+  const AgentHomeScreen({super.key, this.openLiveRequestsOnLoad = false});
 
   @override
   State<AgentHomeScreen> createState() => _AgentHomeScreenState();
 }
 
-class _AgentHomeScreenState extends State<AgentHomeScreen> {
+class _AgentHomeScreenState extends State<AgentHomeScreen> with WidgetsBindingObserver {
   bool _isOnline = true;
   int _currentIndex = 0;
 
@@ -32,25 +35,184 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
   final LocationService _locationService = LocationService();
   bool _isLoadingLiveRequests = false;
   String? _actioningRequestId;
+  String? _archivingRequestId;
+  bool _isClearingAll = false;
   bool _blinkOn = true;
   Timer? _blinkTimer;
+  Timer? _livePollTimer;
   final Set<String> _approvedRequestIds = <String>{};
+  final Set<String> _shownSuccessRequestIds = <String>{};
+  final Set<String> _seenRequestIds = <String>{};
+  final Set<String> _knownPendingRequestIds = <String>{};
+  final DateTime _sessionStartedAt = DateTime.now();
+  DateTime? _lastHistoryConfirmedAt;
+  DateTime? _lastSummaryRefreshedAt;
+  bool _isSummaryLoading = false;
+  int _todayConfirmedCount = 0;
+  int _totalConfirmedCount = 0;
+  int _totalConfirmedAmount = 0;
+  bool _isPollingActive = false;
+  StreamSubscription<String?>? _notificationTapSubscription;
 
   List<AgentLiveRequest> _liveRequests = const <AgentLiveRequest>[];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _lastHistoryConfirmedAt = _sessionStartedAt;
     _startIndicatorBlink();
     _loadAgentProfile();
     _loadInitialMapLocation();
     _loadLiveRequests();
+    _loadTransactionSummary();
+    _startLiveRequestPolling();
+    _notificationTapSubscription =
+        LocalNotificationService.instance.onNotificationTap.listen((payload) {
+      if (!mounted) return;
+      if (payload == 'open_live_requests') {
+        _openLiveRequestNotifications();
+      }
+    });
+
+    if (widget.openLiveRequestsOnLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _openLiveRequestNotifications();
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _blinkTimer?.cancel();
+    _stopLiveRequestPolling();
+    _notificationTapSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startLiveRequestPolling();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _stopLiveRequestPolling();
+    }
+  }
+
+  void _startLiveRequestPolling() {
+    if (_isPollingActive) return;
+    _livePollTimer?.cancel();
+    _livePollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      _loadLiveRequests(silent: true);
+      _pollRecentConfirmedFromHistory();
+      _refreshSummaryIfNeeded();
+    });
+    _isPollingActive = true;
+  }
+
+  void _stopLiveRequestPolling() {
+    _livePollTimer?.cancel();
+    _livePollTimer = null;
+    _isPollingActive = false;
+  }
+
+  void _refreshSummaryIfNeeded() {
+    if (_isSummaryLoading) return;
+    final last = _lastSummaryRefreshedAt;
+    if (last != null && DateTime.now().difference(last).inSeconds < 15) return;
+    _loadTransactionSummary();
+  }
+
+  Future<void> _loadTransactionSummary() async {
+    if (!mounted) return;
+    _isSummaryLoading = true;
+    try {
+      final history = await AgentService.getTransactionHistory(limit: 20);
+      if (!mounted) return;
+
+      final confirmed = history.where((item) => _isConfirmedStatus(item.status)).toList();
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      int todayCount = 0;
+      int totalCount = history.length;
+      int totalAmount = 0;
+
+      for (final item in history) {
+        final ts = item.completedAt ?? item.updatedAt ?? item.createdAt;
+        if (ts == null) continue;
+        final itemDay = DateTime(ts.year, ts.month, ts.day);
+        if (itemDay == today) {
+          todayCount += 1;
+        }
+      }
+
+      for (final item in confirmed) {
+        totalAmount += item.amount;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _todayConfirmedCount = todayCount;
+        _totalConfirmedCount = totalCount;
+        _totalConfirmedAmount = totalAmount;
+        _lastSummaryRefreshedAt = DateTime.now();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _lastSummaryRefreshedAt = DateTime.now();
+      });
+    } finally {
+      _isSummaryLoading = false;
+    }
+  }
+
+  Future<void> _pollRecentConfirmedFromHistory() async {
+    try {
+      final history = await AgentService.getTransactionHistory(limit: 20);
+      if (!mounted) return;
+
+      final recentConfirmed = history.where((item) {
+        if (!_isConfirmedStatus(item.status)) return false;
+        if (_shownSuccessRequestIds.contains(item.id)) return false;
+        if (!_seenRequestIds.contains(item.id)) return false;
+        final confirmedAt = item.completedAt ?? item.updatedAt ?? item.createdAt;
+        if (confirmedAt == null) return false;
+        if (_lastHistoryConfirmedAt != null && !confirmedAt.isAfter(_lastHistoryConfirmedAt!)) return false;
+        return true;
+      }).toList();
+
+      DateTime latestConfirmedAt = _lastHistoryConfirmedAt ?? _sessionStartedAt;
+      for (final item in recentConfirmed) {
+        if (!_shownSuccessRequestIds.add(item.id)) continue;
+        if (!mounted) return;
+        final confirmedAt = item.completedAt ?? item.updatedAt ?? item.createdAt;
+        if (confirmedAt != null && confirmedAt.isAfter(latestConfirmedAt)) {
+          latestConfirmedAt = confirmedAt;
+        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AgentTransactionSuccessScreen(
+              userName: item.userName,
+              amount: item.amount,
+            ),
+          ),
+        );
+      }
+
+      _lastHistoryConfirmedAt = latestConfirmedAt;
+    } catch (_) {
+      // ignore transient history polling errors
+    }
+  }
+
+  bool _isConfirmedStatus(String status) {
+    final normalized = status.trim().toLowerCase();
+    return normalized == 'confirmed' || normalized == 'success' || normalized == 'completed';
   }
 
   void _startIndicatorBlink() {
@@ -107,21 +269,65 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
     }
   }
 
-  Future<void> _loadLiveRequests() async {
-    setState(() => _isLoadingLiveRequests = true);
+  Future<void> _loadLiveRequests({bool silent = false}) async {
+    if (!mounted) return;
+    if (!silent) {
+      setState(() => _isLoadingLiveRequests = true);
+    }
     try {
       final requests = await AgentService.getLiveRequests(limit: 30);
       if (!mounted) return;
-      final requestIds = requests.map((item) => item.id).toSet();
+      _seenRequestIds.addAll(requests.map((item) => item.id));
+
+      final confirmed = requests.where((item) => item.status.toLowerCase() == 'confirmed').toList();
+      for (final item in confirmed) {
+        if (_shownSuccessRequestIds.add(item.id)) {
+          final confirmedAt = item.agentConfirmedAt ?? item.userConfirmedAt ?? item.approvedAt;
+          if (confirmedAt != null && confirmedAt.isBefore(_sessionStartedAt)) {
+            continue;
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AgentTransactionSuccessScreen(
+                  userName: item.name,
+                  amount: item.amount,
+                ),
+              ),
+            );
+          });
+        }
+      }
+
+      final liveOnly = requests
+          .where((item) => item.status.toLowerCase() == 'pending' || item.status.toLowerCase() == 'approved')
+          .toList();
+
+      final pendingLive = liveOnly.where((item) => item.status.toLowerCase() == 'pending').toList();
+      final pendingIds = pendingLive.map((item) => item.id).toSet();
+      final newPending = pendingLive.where((item) => !_knownPendingRequestIds.contains(item.id));
+      for (final item in newPending) {
+        await LocalNotificationService.instance.showIncomingTransactionRequest(
+          requesterName: item.name,
+        );
+      }
+      _knownPendingRequestIds
+        ..clear()
+        ..addAll(pendingIds);
+
+      final requestIds = liveOnly.map((item) => item.id).toSet();
       setState(() {
-        _liveRequests = requests;
+        _liveRequests = liveOnly;
         _approvedRequestIds.removeWhere((id) => !requestIds.contains(id));
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _liveRequests = const <AgentLiveRequest>[]);
+      if (!silent) {
+        setState(() => _liveRequests = const <AgentLiveRequest>[]);
+      }
     } finally {
-      if (mounted) setState(() => _isLoadingLiveRequests = false);
+      if (mounted && !silent) setState(() => _isLoadingLiveRequests = false);
     }
   }
 
@@ -147,17 +353,85 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
     }
   }
 
+  Future<void> _clearAllLiveRequests() async {
+    if (_isClearingAll || _liveRequests.isEmpty) return;
+
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Clear all live requests?'),
+          content: const Text('This will remove all live requests from your list.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Clear All'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldClear != true) return;
+
+    setState(() => _isClearingAll = true);
+    try {
+      await AgentService.clearAllRequests();
+      if (!mounted) return;
+      setState(() {
+        _liveRequests = const <AgentLiveRequest>[];
+        _approvedRequestIds.clear();
+        _shownSuccessRequestIds.clear();
+        _seenRequestIds.clear();
+        _knownPendingRequestIds.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All live requests cleared.')),
+      );
+    } catch (error) {
+      final message = error.toString().replaceFirst('Exception: ', '');
+      if (message.toLowerCase().contains('not found')) {
+        final requests = List<AgentLiveRequest>.from(_liveRequests);
+        for (final request in requests) {
+          try {
+            if (request.status.toLowerCase() == 'approved') {
+              await AgentService.archiveLiveRequest(request.id);
+            } else if (request.status.toLowerCase() == 'pending') {
+              await AgentService.rejectLiveRequest(request.id);
+            }
+          } catch (_) {}
+        }
+
+        if (!mounted) return;
+        setState(() {
+          _liveRequests = const <AgentLiveRequest>[];
+          _approvedRequestIds.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All live requests cleared.')),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isClearingAll = false);
+    }
+  }
+
   Future<void> _approveRequestWithOtp(AgentLiveRequest request) async {
     if (_actioningRequestId != null) return;
     setState(() => _actioningRequestId = request.id);
     try {
-      await AgentService.approveLiveRequest(request.id);
+      await AgentService.approveLiveRequest(requestId: request.id);
       if (!mounted) return;
-      setState(() {
-        _liveRequests = _liveRequests
-            .map((item) => item.id == request.id ? item.copyWith(status: 'approved') : item)
-            .toList();
-      });
+      await _loadLiveRequests();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Request approved for ${request.name}')),
       );
@@ -168,6 +442,41 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
       );
     } finally {
       if (mounted) setState(() => _actioningRequestId = null);
+    }
+  }
+
+  Future<void> _archiveApprovedRequest(AgentLiveRequest request) async {
+    if (_archivingRequestId != null) return;
+    setState(() => _archivingRequestId = request.id);
+    try {
+      await AgentService.archiveLiveRequest(request.id);
+      if (!mounted) return;
+      setState(() {
+        _liveRequests = _liveRequests.where((item) => item.id != request.id).toList();
+        _approvedRequestIds.remove(request.id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Request cleared for ${request.name}')),
+      );
+    } catch (error) {
+      final message = error.toString().replaceFirst('Exception: ', '');
+      if (message.toLowerCase().contains('not found')) {
+        if (!mounted) return;
+        setState(() {
+          _liveRequests = _liveRequests.where((item) => item.id != request.id).toList();
+          _approvedRequestIds.remove(request.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Request cleared for ${request.name}')),
+        );
+        return;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => _archivingRequestId = null);
     }
   }
 
@@ -203,9 +512,15 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
           padding: const EdgeInsets.only(left: 12),
           child: GestureDetector(
             onTap: () {
+              _stopLiveRequestPolling();
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AgentProfileScreen()),
-              );
+              ).then((_) {
+                if (mounted) {
+                  _startLiveRequestPolling();
+                  _loadAgentProfile();
+                }
+              });
             },
             child: Row(
               children: [
@@ -234,25 +549,41 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
         title: _buildCenteredOnlineToggle(),
         actions: [
           IconButton(
-            onPressed: _openLiveRequestNotifications,
+            onPressed: _openAgentNotificationCenter,
             tooltip: 'Notifications',
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.notifications_none, color: Colors.black87),
-                if (_liveRequests.isNotEmpty)
-                  Positioned(
-                    right: -2,
-                    top: -2,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: _blinkOn ? 1 : 0.35),
-                        shape: BoxShape.circle,
+                StreamBuilder<int>(
+                  stream: LocalNotificationService.instance.onBadgeCount,
+                  initialData: LocalNotificationService.instance.badgeCount,
+                  builder: (context, snapshot) {
+                    final count = snapshot.data ?? 0;
+                    if (count <= 0) return const SizedBox.shrink();
+                    return Positioned(
+                      right: -4,
+                      top: -4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: _blinkOn ? 1 : 0.7),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18),
+                        child: Text(
+                          count > 99 ? '99+' : '$count',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -282,6 +613,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
           setState(() => _currentIndex = index);
 
           if (index == 1) {
+            _stopLiveRequestPolling();
             Navigator.of(context)
                 .push(
                   MaterialPageRoute(
@@ -298,17 +630,25 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                   ),
                 )
                 .then((_) {
-              if (mounted) setState(() => _currentIndex = 0);
+              if (mounted) {
+                setState(() => _currentIndex = 0);
+                _startLiveRequestPolling();
+              }
             });
           } else if (index == 2) {
+            _stopLiveRequestPolling();
             Navigator.of(context)
                 .push(
                   MaterialPageRoute(builder: (_) => const AgentTransactionsScreen()),
                 )
                 .then((_) {
-              if (mounted) setState(() => _currentIndex = 0);
+              if (mounted) {
+                setState(() => _currentIndex = 0);
+                _startLiveRequestPolling();
+              }
             });
           } else if (index == 3) {
+            _stopLiveRequestPolling();
             Navigator.of(context)
                 .push(
                   MaterialPageRoute(builder: (_) => const AgentProfileScreen()),
@@ -316,6 +656,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                 .then((_) {
               if (mounted) {
                 setState(() => _currentIndex = 0);
+                _startLiveRequestPolling();
                 _loadAgentProfile();
               }
             });
@@ -370,6 +711,74 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _openAgentNotificationCenter() {
+    LocalNotificationService.instance.markAllSeen();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Notifications',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                TextButton(
+                  onPressed: () => LocalNotificationService.instance.clearAllNotifications(),
+                  child: const Text('Clear All'),
+                ),
+                const SizedBox(height: 12),
+                StreamBuilder<List<LocalNotificationItem>>(
+                  stream: LocalNotificationService.instance.onNotificationList,
+                  initialData: LocalNotificationService.instance.activeNotifications,
+                  builder: (context, snapshot) {
+                    final items = snapshot.data ?? [];
+                    if (items.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: Text('No notifications yet')),
+                      );
+                    }
+                    return Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const Divider(height: 18),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            subtitle: Text(item.message),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.of(sheetContext).pop();
+                              if (item.payload == 'open_live_requests') {
+                                _openLiveRequestNotifications();
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -538,14 +947,13 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: _summaryCard('Today\'s Requests', '3')),
+            Expanded(child: _summaryCard('Today\'s Requests', '$_todayConfirmedCount')),
             const SizedBox(width: 10),
-            Expanded(child: _summaryCard('Total Transactions', '48')),
+            Expanded(child: _summaryCard('Total Transactions', '$_totalConfirmedCount')),
             const SizedBox(width: 10),
-            Expanded(child: _summaryCard('Earnings', '₹2,350')),
+            Expanded(child: _summaryCard('Earnings', '₹$_totalConfirmedAmount')),
           ],
         ),
-        // TODO: Backend will fetch transaction summary and live requests
       ],
     );
   }
@@ -625,6 +1033,19 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
               icon: const Icon(Icons.refresh, size: 20),
               tooltip: 'Refresh',
             ),
+            IconButton(
+              onPressed: _isLoadingLiveRequests || _isClearingAll || _liveRequests.isEmpty
+                  ? null
+                  : _clearAllLiveRequests,
+              icon: _isClearingAll
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.clear_all, size: 20),
+              tooltip: 'Clear all',
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -699,13 +1120,28 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                     ],
                   ),
                 ),
-                Text(
-                  '₹${request.amount}',
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '₹${request.amount}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    if (isApproved)
+                      IconButton(
+                        onPressed: _archivingRequestId == request.id
+                            ? null
+                            : () => _confirmArchiveDialog(request),
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: 'Clear approved request',
+                        padding: const EdgeInsets.only(left: 6),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -807,8 +1243,37 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
     );
   }
 
+  Future<void> _confirmArchiveDialog(AgentLiveRequest request) async {
+    final shouldArchive = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Clear approved request?'),
+          content: const Text(
+            'This will remove the approved request from your live list.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldArchive == true) {
+      await _archiveApprovedRequest(request);
+    }
+  }
+
   Future<void> _showRequestDetailsDialog(AgentLiveRequest request) async {
-    final otpController = TextEditingController();
+    if (!mounted) return;
+    String otpValue = '';
     String? inlineError;
     bool isVerifying = false;
 
@@ -817,6 +1282,12 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setLocalState) {
+            void safeSetState(VoidCallback update) {
+              if (dialogContext.mounted) {
+                setLocalState(update);
+              }
+            }
+
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               child: SingleChildScrollView(
@@ -854,34 +1325,63 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                     _infoTile('Amount', '₹${request.amount}'),
                     const SizedBox(height: 12),
                     const Text(
-                      'OTP Verification',
+                      'OTP Confirmation',
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
-                    TextField(
-                      controller: otpController,
-                      keyboardType: TextInputType.number,
-                      maxLength: 4,
-                      enabled: !isVerifying,
-                      textAlign: TextAlign.center,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(4),
-                      ],
-                      decoration: InputDecoration(
-                        hintText: 'Enter 4-digit OTP',
-                        counterText: '',
-                        errorText: inlineError,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: const Color(0xffFAFAFA),
-                      ),
-                    ),
                     if (request.status.toLowerCase() != 'approved') ...[
-                      const SizedBox(height: 8),
                       const Text(
-                        'Approve request first, then verify OTP.',
+                        'Approve request first. Then verify the user OTP.',
                         style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+                      ),
+                    ] else ...[
+                      if (request.agentConfirmedAt != null)
+                        const Text(
+                          'You have already verified user OTP.',
+                          style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+                        ),
+                      if (request.approvedAt != null)
+                        const Text(
+                          'Thank you for connecting. Please meet and do the transaction securely.',
+                          style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+                        )
+                      else
+                        const Text(
+                          'Verify user OTP to confirm you met.',
+                          style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+                        ),
+                      const SizedBox(height: 6),
+                      if (request.approvedAt != null)
+                        Text(
+                          'Your OTP: ${request.agentConfirmOtp.isEmpty ? 'Pending' : request.agentConfirmOtp}',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      const SizedBox(height: 6),
+                      Text(
+                        request.approvedAt != null
+                            ? 'Enter the OTP shown by the user to complete verification.'
+                            : 'Enter the request OTP shown by the user.',
+                        style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        enabled: !isVerifying && request.agentConfirmedAt == null,
+                        textAlign: TextAlign.center,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(4),
+                        ],
+                        onChanged: (value) => otpValue = value.trim(),
+                        decoration: InputDecoration(
+                          hintText: 'Enter user OTP',
+                          counterText: '',
+                          errorText: inlineError,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: const Color(0xffFAFAFA),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -896,51 +1396,100 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: isVerifying || request.status.toLowerCase() != 'approved'
+                            onPressed: isVerifying ||
+                                    request.status.toLowerCase() != 'approved' ||
+                                    request.agentConfirmedAt != null
                                 ? null
                                 : () async {
-                                    final otp = otpController.text.trim();
+                                    final otp = otpValue.trim();
                                     if (otp.length != 4) {
                                       setLocalState(() => inlineError = 'Enter valid 4-digit OTP');
                                       return;
                                     }
 
-                                    setLocalState(() {
+                                    safeSetState(() {
                                       inlineError = null;
                                       isVerifying = true;
                                     });
 
-                                    setState(() => _actioningRequestId = request.id);
+                                    if (mounted) {
+                                      setState(() => _actioningRequestId = request.id);
+                                    }
                                     try {
-                                      await AgentService.verifyTransactionOtp(
+                                      if (request.approvedAt == null) {
+                                        final agentOtp = await AgentService.verifyRequestOtp(
+                                          requestId: request.id,
+                                          otp: otp,
+                                        );
+                                        if (!mounted) return;
+                                        await _loadLiveRequests();
+                                        if (dialogContext.mounted) {
+                                          Navigator.of(dialogContext).pop();
+                                        }
+                                        if (mounted) {
+                                          await showDialog<void>(
+                                            context: context,
+                                            builder: (popupContext) {
+                                              return AlertDialog(
+                                                title: const Text('OTP Verified'),
+                                                content: Text(
+                                                  'Thank you for reaching out to each other. Now do your transaction securely without any inconvenience. All your transactions will be recorded end-to-end by the platform.\n\nYour OTP: ${agentOtp ?? 'Check details'}',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.of(popupContext).pop(),
+                                                    child: const Text('OK'),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          );
+                                        }
+                                        return;
+                                      }
+
+                                      final status = await AgentService.confirmWithUserOtp(
                                         transactionId: request.id,
                                         otp: otp,
                                       );
                                       if (!mounted) return;
-                                      setState(() {
-                                        _approvedRequestIds.add(request.id);
-                                        _liveRequests = _liveRequests.where((item) => item.id != request.id).toList();
-                                      });
-                                      Navigator.of(dialogContext).pop();
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => AgentTransactionSuccessScreen(
-                                            userName: request.name,
-                                            amount: request.amount,
-                                          ),
-                                        ),
-                                      );
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Transaction successful. Check Transactions tab.')),
-                                      );
+                                      await _loadLiveRequests();
+                                      if (dialogContext.mounted) {
+                                        Navigator.of(dialogContext).pop();
+                                      }
+                                      if (status == 'confirmed') {
+                                        if (mounted) {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => AgentTransactionSuccessScreen(
+                                                userName: request.name,
+                                                amount: request.amount,
+                                              ),
+                                            ),
+                                          );
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Transaction successful.')),
+                                          );
+                                        }
+                                      } else {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('User OTP verified. Please share your OTP to user.'),
+                                            ),
+                                          );
+                                        }
+                                      }
                                     } catch (error) {
                                       if (!mounted) return;
-                                      setLocalState(() {
+                                      safeSetState(() {
                                         inlineError = error.toString().replaceFirst('Exception: ', '');
                                       });
                                     } finally {
-                                      if (mounted) setState(() => _actioningRequestId = null);
-                                      setLocalState(() => isVerifying = false);
+                                      if (mounted) {
+                                        setState(() => _actioningRequestId = null);
+                                      }
+                                      safeSetState(() => isVerifying = false);
                                     }
                                   },
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
@@ -950,7 +1499,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
                                     height: 16,
                                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                   )
-                                : const Text('Verify OTP'),
+                                : Text(request.agentConfirmedAt != null ? 'Verified' : 'Verify OTP'),
                           ),
                         ),
                       ],
@@ -964,7 +1513,6 @@ class _AgentHomeScreenState extends State<AgentHomeScreen> {
       },
     );
 
-    otpController.dispose();
   }
 
   Widget _infoTile(String label, String value) {

@@ -1,18 +1,24 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 
 import 'upi_to_cash_screen.dart';
 import 'cash_to_upi_screen.dart';
 import 'available_agents_screen.dart';
 import 'user_profile_screen.dart';
 import 'my_requests_screen.dart';
+import '../../config/api_config.dart';
+import '../../services/auth_service.dart';
+import '../../services/available_agents_context_store.dart';
 import '../../services/profile_photo_service.dart';
 import '../../services/user_service.dart';
 import '../../services/location_service.dart';
+import '../../services/local_notification_service.dart';
 import '../shared/nearby_map_screen.dart';        
 
 /// =======================================================
@@ -27,6 +33,8 @@ class UserHomeScreen extends StatefulWidget {
 }
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
+  static final String _apiBaseUrl = ApiConfig.baseUrl;
+
   int _currentIndex = 0; // Track selected tab locally.
   bool _useCurrentLocation = false;
   String _cityLabel = 'Wagholi, Pune';
@@ -36,16 +44,12 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   bool _isFetchingLocation = false;
   LatLng _mapCenter = const LatLng(18.5912, 73.7389);
   GoogleMapController? _mapController;
-  final Set<Marker> _mapMarkers = {
-    const Marker(
-      markerId: MarkerId('default_location'),
-      position: LatLng(18.5912, 73.7389),
-      infoWindow: InfoWindow(title: 'Current Area'),
-    ),
-  };
+  final Set<Marker> _mapMarkers = {};
   final ProfilePhotoService _photoService = ProfilePhotoService();
   final UserService _userService = UserService();
   final LocationService _locationService = LocationService();
+  Timer? _requestStatusPollTimer;
+  final Map<String, String> _knownRequestStatusById = {};
 
   @override
   void initState() {
@@ -53,6 +57,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     _loadPhoto();
     _loadProfileName();
     _loadInitialMapLocation();
+    _startRequestStatusPolling();
   }
 
   void _openFullMap() {
@@ -61,6 +66,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         builder: (_) => NearbyMapScreen(
           initialCenter: _mapCenter,
           markers: _mapMarkers,
+          autoLoadNearby: true,
         ),
       ),
     );
@@ -88,8 +94,102 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   @override
   void dispose() {
+    _requestStatusPollTimer?.cancel();
     _mapController?.dispose();
     super.dispose();
+  }
+
+  void _startRequestStatusPolling() {
+    _requestStatusPollTimer?.cancel();
+    _pollUserRequestStatuses();
+    _requestStatusPollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      _pollUserRequestStatuses();
+    });
+  }
+
+  Future<void> _pollUserRequestStatuses() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) return;
+
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/transactions/requests?limit=100'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) return;
+
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) return;
+      final items = body['items'];
+      if (items is! List) return;
+
+      for (final raw in items.whereType<Map<String, dynamic>>()) {
+        final id = (raw['id'] ?? '').toString().trim();
+        if (id.isEmpty) continue;
+        final status = (raw['status'] ?? '').toString().trim().toLowerCase();
+        if (status.isEmpty) continue;
+
+        final previous = _knownRequestStatusById[id];
+        _knownRequestStatusById[id] = status;
+
+        if (previous == status) continue;
+        if (!_isNotifiableStatus(status)) continue;
+
+        final agent = raw['agent'] is Map<String, dynamic>
+            ? raw['agent'] as Map<String, dynamic>
+            : <String, dynamic>{};
+        final user = agent['user'] is Map<String, dynamic>
+            ? agent['user'] as Map<String, dynamic>
+            : <String, dynamic>{};
+        final agentName = (user['name'] ?? 'Agent').toString();
+
+        await LocalNotificationService.instance.showUserStatusNotification(
+          title: _statusTitle(status),
+          message: _statusMessage(status, agentName),
+          payload: 'user_request:$id',
+        );
+      }
+    } catch (_) {
+      // Ignore transient polling/network errors.
+    }
+  }
+
+  bool _isNotifiableStatus(String status) {
+    return status == 'approved' || status == 'rejected' || status == 'cancelled' || status == 'confirmed';
+  }
+
+  String _statusTitle(String status) {
+    switch (status) {
+      case 'approved':
+        return 'Request Approved';
+      case 'rejected':
+        return 'Request Rejected';
+      case 'cancelled':
+        return 'Request Cancelled';
+      case 'confirmed':
+        return 'Transaction Completed';
+      default:
+        return 'Request Update';
+    }
+  }
+
+  String _statusMessage(String status, String agentName) {
+    switch (status) {
+      case 'approved':
+        return '$agentName approved your request. Please see details.';
+      case 'rejected':
+        return '$agentName rejected your request.';
+      case 'cancelled':
+        return 'Your request has been cancelled.';
+      case 'confirmed':
+        return 'Your transaction with $agentName is completed.';
+      default:
+        return 'Your request status has changed.';
+    }
   }
 
   Future<void> _loadInitialMapLocation() async {
@@ -106,15 +206,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     final nextCenter = LatLng(location.latitude, location.longitude);
     setState(() {
       _mapCenter = nextCenter;
-      _mapMarkers
-        ..clear()
-        ..add(
-          Marker(
-            markerId: const MarkerId('current_location'),
-            position: nextCenter,
-            infoWindow: InfoWindow(title: _cityLabel),
-          ),
-        );
+      _mapMarkers.clear();
     });
 
     _mapController?.animateCamera(
@@ -331,24 +423,134 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         Stack(
           children: [
             IconButton(
-              onPressed: () {},
+              onPressed: _openNotificationCenter,
               icon: const Icon(Icons.notifications_outlined, size: 28),
             ),
-            Positioned(
-              right: 8,
-              top: 8,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-              ),
+            StreamBuilder<int>(
+              stream: LocalNotificationService.instance.onBadgeCount,
+              initialData: LocalNotificationService.instance.badgeCount,
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                if (count <= 0) return const SizedBox.shrink();
+                return Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18),
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
       ],
+    );
+  }
+
+  void _openNotificationCenter() {
+    LocalNotificationService.instance.markAllSeen();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Notifications',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                TextButton(
+                  onPressed: () => LocalNotificationService.instance.clearAllNotifications(),
+                  child: const Text('Clear All'),
+                ),
+                const SizedBox(height: 12),
+                StreamBuilder<List<LocalNotificationItem>>(
+                  stream: LocalNotificationService.instance.onNotificationList,
+                  initialData: LocalNotificationService.instance.activeNotifications,
+                  builder: (context, snapshot) {
+                    final items = snapshot.data ?? [];
+                    if (items.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: Text('No notifications yet')),
+                      );
+                    }
+                    return Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const Divider(height: 18),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            subtitle: Text(item.message),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.of(sheetContext).pop();
+                              if (item.payload.startsWith('user_request:')) {
+                                final requestId = item.payload.replaceFirst('user_request:', '').trim();
+                                if (requestId.isNotEmpty) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => MyRequestsScreen(initialRequestId: requestId),
+                                    ),
+                                  );
+                                }
+                              } else if (item.payload.startsWith('user_approved:')) {
+                                AvailableAgentsContextStore.load().then((contextArgs) {
+                                  if (!mounted) return;
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => AvailableAgentsScreen(
+                                        city: contextArgs?.city.isNotEmpty == true
+                                            ? contextArgs!.city
+                                            : 'your area',
+                                        latitude: contextArgs?.latitude,
+                                        longitude: contextArgs?.longitude,
+                                        radiusKm: contextArgs?.radiusKm ?? 5.0,
+                                        transactionType: contextArgs?.transactionType ?? 'UPI → Cash',
+                                        amount: contextArgs?.amount ?? '1000',
+                                      ),
+                                    ),
+                                  );
+                                });
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

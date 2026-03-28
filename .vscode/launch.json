@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Android Device)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=API_BASE_URL=http://10.172.112.209:4000"
+      ]
+    }
+  ]
+}

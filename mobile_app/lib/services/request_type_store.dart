@@ -22,6 +22,16 @@ class RequestTypeStore {
     return _readMap(prefs);
   }
 
+  static Future<void> removeType(String transactionId) async {
+    if (transactionId.trim().isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final map = await _readMap(prefs);
+    if (!map.containsKey(transactionId)) return;
+    map.remove(transactionId);
+    await prefs.setString(_key, jsonEncode(map));
+  }
+
   static Future<Map<String, String>> _readMap(SharedPreferences prefs) async {
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return <String, String>{};

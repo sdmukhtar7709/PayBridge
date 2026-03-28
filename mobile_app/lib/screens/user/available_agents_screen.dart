@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/available_agents_context_store.dart';
+import '../../services/local_notification_service.dart';
 import '../../services/request_type_store.dart';
 import '../../config/api_config.dart';
 import 'transaction_success_screen.dart';
@@ -37,7 +39,7 @@ class AvailableAgentsScreen extends StatefulWidget {
 }
 
 class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
-  static const String _apiBaseUrl = ApiConfig.baseUrl;
+  static final String _apiBaseUrl = ApiConfig.baseUrl;
 
   List<_AgentSummary> _agents = [];
   bool _isLoading = true;
@@ -46,10 +48,22 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
   final Map<String, _RequestState> _requestByAgentId = {};
   final Set<String> _shownSuccessTxnIds = <String>{};
   Timer? _statusPollTimer;
+  String? _archivingTransactionId;
+  bool _isClearingAll = false;
 
   @override
   void initState() {
     super.initState();
+    AvailableAgentsContextStore.save(
+      AvailableAgentsContext(
+        city: widget.city,
+        latitude: widget.latitude,
+        longitude: widget.longitude,
+        radiusKm: widget.radiusKm,
+        transactionType: widget.transactionType,
+        amount: widget.amount,
+      ),
+    );
     _fetchAgents();
   }
 
@@ -61,7 +75,8 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
 
   void _ensurePolling() {
     if (_statusPollTimer != null) return;
-    _statusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _pollRequestStatuses();
+    _statusPollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _pollRequestStatuses();
     });
   }
@@ -101,10 +116,39 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
         );
 
         final body = _decodeBody(response);
+        if (response.statusCode == 404) {
+          _requestByAgentId.remove(entry.key);
+          changed = true;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Request cleared from the list.')),
+            );
+          }
+          continue;
+        }
         if (response.statusCode < 200 || response.statusCode >= 300) continue;
 
         final latestStatus = (body['status'] ?? '').toString().trim().toLowerCase();
-        if (latestStatus.isEmpty || latestStatus == 'pending') continue;
+        final requestOtp = (body['requestOtp'] ?? '').toString().trim();
+        final userConfirmOtp = (body['userConfirmOtp'] ?? '').toString().trim();
+        final approvedAt = DateTime.tryParse((body['approvedAt'] ?? '').toString());
+        final userConfirmedAt = DateTime.tryParse((body['userConfirmedAt'] ?? '').toString());
+        final agentConfirmedAt = DateTime.tryParse((body['agentConfirmedAt'] ?? '').toString());
+
+        if (latestStatus.isEmpty) continue;
+
+        if (latestStatus == 'pending') {
+          _requestByAgentId[entry.key] = state.copyWith(
+            status: 'pending',
+            requestOtp: requestOtp,
+            userConfirmOtp: userConfirmOtp,
+            approvedAt: approvedAt,
+            userConfirmedAt: userConfirmedAt,
+            agentConfirmedAt: agentConfirmedAt,
+          );
+          changed = true;
+          continue;
+        }
 
         if (latestStatus == 'rejected') {
           _requestByAgentId[entry.key] = state.copyWith(
@@ -116,18 +160,64 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Rejected, try another agent')),
             );
+            LocalNotificationService.instance.showUserStatusNotification(
+              title: 'Request Rejected',
+              message: 'Agent rejected your request. Try another agent.',
+              payload: 'user_request:${state.transactionId}',
+            );
           }
         } else if (latestStatus == 'approved') {
-          final otp = (body['otp'] ?? '').toString().trim();
+          final becameFirstOtpVerified = state.approvedAt == null && approvedAt != null;
+          final becameApproved = state.status != 'approved';
+          final shouldNotifyApproved = becameApproved && !state.approvedNotified;
+          final shouldShowFirstOtpPopup = becameFirstOtpVerified && !state.approvedNotified;
+
           _requestByAgentId[entry.key] = state.copyWith(
             status: 'approved',
-            otp: otp,
-            approvedNotified: true,
+            requestOtp: requestOtp,
+            userConfirmOtp: userConfirmOtp,
+            approvedAt: approvedAt,
+            userConfirmedAt: userConfirmedAt,
+            agentConfirmedAt: agentConfirmedAt,
+            approvedNotified: state.approvedNotified || becameFirstOtpVerified || becameApproved,
           );
           changed = true;
-          if (mounted && !state.approvedNotified) {
+          if (mounted && shouldNotifyApproved) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Agent approved. OTP is ready for transaction.')),
+              const SnackBar(content: Text('Agent approved your request. Please see details.')),
+            );
+            LocalNotificationService.instance.showUserStatusNotification(
+              title: 'Request Approved',
+              message: 'Agent approved your request. Please see details.',
+              payload: 'user_approved:${state.transactionId}',
+            );
+          }
+          if (mounted && shouldShowFirstOtpPopup) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('First OTP verified. OTP is ready for transaction.')),
+            );
+            LocalNotificationService.instance.showUserStatusNotification(
+              title: 'OTP Ready',
+              message: 'Your OTP is ready. Complete the transaction with the agent.',
+              payload: 'user_request:${state.transactionId}',
+            );
+            final otpText = userConfirmOtp.isNotEmpty ? userConfirmOtp : 'Pending';
+            await showDialog<void>(
+              context: context,
+              builder: (popupContext) {
+                return AlertDialog(
+                  title: const Text('OTP Ready'),
+                  content: Text(
+                    'Thank you for reaching out to each other. Now do your transaction securely without any inconvenience. All your transactions will be recorded end-to-end by the platform.\n\nYour OTP: $otpText',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(popupContext).pop(),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                );
+              },
             );
           }
         } else if (latestStatus == 'confirmed') {
@@ -141,6 +231,11 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
 
           if (mounted && !_shownSuccessTxnIds.contains(transactionId)) {
             _shownSuccessTxnIds.add(transactionId);
+            LocalNotificationService.instance.showUserStatusNotification(
+              title: 'Transaction Completed',
+              message: 'Your transaction is completed successfully.',
+              payload: 'user_request:$transactionId',
+            );
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               Navigator.of(context).push(
@@ -179,6 +274,178 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
     _stopPollingIfIdle();
   }
 
+  Future<void> _archiveRequestByTransactionId(String agentId, String transactionId) async {
+    if (_archivingTransactionId != null) return;
+
+    final token = await AuthService.getToken();
+    if (token == null || token.isEmpty) return;
+
+    setState(() => _archivingTransactionId = transactionId);
+    try {
+      final response = await http.patch(
+        Uri.parse('$_apiBaseUrl/transactions/requests/$transactionId/archive'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final body = _decodeBody(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 404) {
+          if (!mounted) return;
+          setState(() => _requestByAgentId.remove(agentId));
+          await RequestTypeStore.removeType(transactionId);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Request cleared from the list.')),
+          );
+          return;
+        }
+        throw Exception(_readError(body, 'Failed to clear request'));
+      }
+
+      if (!mounted) return;
+      setState(() => _requestByAgentId.remove(agentId));
+      await RequestTypeStore.removeType(transactionId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request cleared from the list.')),
+      );
+      _stopPollingIfIdle();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _archivingTransactionId = null);
+    }
+  }
+
+  Future<void> _confirmClearRequest(String agentId, _RequestState state) async {
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Clear this request?'),
+          content: const Text('This will remove the request from the available list.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldClear == true) {
+      await _archiveRequestByTransactionId(agentId, state.transactionId);
+    }
+  }
+
+  Future<void> _clearAllRequests() async {
+    if (_isClearingAll || _requestByAgentId.isEmpty) return;
+
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Clear all requests?'),
+          content: const Text('This will remove all your requests from this list.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Clear All'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldClear != true) return;
+
+    final token = await AuthService.getToken();
+    if (token == null || token.isEmpty) return;
+
+    setState(() => _isClearingAll = true);
+    try {
+      final response = await http.delete(
+        Uri.parse('$_apiBaseUrl/transactions/requests/clear-all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final body = _decodeBody(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final message = _readError(body, 'Failed to clear requests');
+        if (message.toLowerCase().contains('not found')) {
+          final entries = _requestByAgentId.entries.toList();
+          for (final entry in entries) {
+            final state = entry.value;
+            try {
+              if (state.status == 'pending') {
+                await http.patch(
+                  Uri.parse('$_apiBaseUrl/transactions/request/${state.transactionId}/cancel'),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer $token',
+                  },
+                );
+              } else {
+                await http.patch(
+                  Uri.parse('$_apiBaseUrl/transactions/requests/${state.transactionId}/archive'),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer $token',
+                  },
+                );
+              }
+            } catch (_) {}
+            await RequestTypeStore.removeType(state.transactionId);
+          }
+
+          if (!mounted) return;
+          setState(() => _requestByAgentId.clear());
+          _stopPollingIfIdle();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('All requests cleared.')),
+          );
+          return;
+        }
+        throw Exception(message);
+      }
+
+      final entries = _requestByAgentId.values.toList();
+      for (final state in entries) {
+        await RequestTypeStore.removeType(state.transactionId);
+      }
+
+      if (!mounted) return;
+      setState(() => _requestByAgentId.clear());
+      _stopPollingIfIdle();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All requests cleared.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _isClearingAll = false);
+    }
+  }
+
   Future<void> _cancelRequest(_AgentSummary agent) async {
     final state = _requestByAgentId[agent.id];
     if (state == null || state.status != 'pending') return;
@@ -202,6 +469,11 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Request cancelled')),
         );
+        LocalNotificationService.instance.showUserStatusNotification(
+          title: 'Request Cancelled',
+          message: 'Your request has been cancelled.',
+          payload: 'user_request:${state.transactionId}',
+        );
         _stopPollingIfIdle();
         return;
       }
@@ -217,6 +489,26 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
 
   Future<void> _sendRequest(_AgentSummary agent) async {
     if (_requestingAgentId != null) return;
+
+    if (!agent.available) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Merchant is offline'),
+            content: const Text('The Person is currently offline. Please try another agent. kindly refresh the list and checking availability again.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
 
     final token = await AuthService.getToken();
     if (token == null || token.isEmpty) {
@@ -305,6 +597,164 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
         const SnackBar(content: Text('Unable to open directions right now')),
       );
     }
+  }
+
+  Future<void> _showConfirmAgentOtpDialog(String agentId, _RequestState state) async {
+    if (state.userConfirmedAt != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Agent OTP already verified.')),
+        );
+      }
+      return;
+    }
+
+    String otpValue = '';
+    String? inlineError;
+    bool isSubmitting = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            void safeSetState(VoidCallback update) {
+              if (dialogContext.mounted) {
+                setLocalState(update);
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Verify Agent OTP'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Enter the OTP shown by the agent.'),
+                  const SizedBox(height: 10),
+                  TextField(
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    textAlign: TextAlign.center,
+                    enabled: !isSubmitting && state.userConfirmedAt == null,
+                    onChanged: (value) => otpValue = value.trim(),
+                    decoration: InputDecoration(
+                      hintText: '4-digit OTP',
+                      counterText: '',
+                      errorText: inlineError,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting || state.userConfirmedAt != null
+                      ? null
+                      : () async {
+                          final otp = otpValue.trim();
+                          if (otp.length != 4) {
+                            safeSetState(() => inlineError = 'Enter a valid 4-digit OTP');
+                            return;
+                          }
+
+                          final token = await AuthService.getToken();
+                          if (token == null || token.isEmpty) {
+                            safeSetState(() => inlineError = 'Please login again');
+                            return;
+                          }
+
+                          safeSetState(() {
+                            inlineError = null;
+                            isSubmitting = true;
+                          });
+
+                          try {
+                            final response = await http.post(
+                              Uri.parse('$_apiBaseUrl/transactions/confirm-user'),
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer $token',
+                              },
+                              body: jsonEncode({
+                                'transactionId': state.transactionId,
+                                'otp': otp,
+                              }),
+                            );
+
+                            final body = _decodeBody(response);
+                            if (response.statusCode >= 200 && response.statusCode < 300) {
+                              final status = (body['status'] ?? '').toString().trim().toLowerCase();
+                              if (!mounted) return;
+                              setState(() {
+                                final existing = _requestByAgentId[agentId];
+                                if (existing != null) {
+                                    _requestByAgentId[agentId] = existing.copyWith(
+                                      userConfirmedAt: DateTime.now(),
+                                    );
+                                }
+                              });
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop();
+                              }
+                              if (mounted) {
+                                if (status == 'confirmed') {
+                                  final matchedAgent = _agents
+                                      .where((item) => item.id == agentId)
+                                      .cast<_AgentSummary?>()
+                                      .firstWhere((item) => item != null, orElse: () => null);
+
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => TransactionSuccessScreen(
+                                        amount: widget.amount,
+                                        agentName: matchedAgent?.name ?? 'Agent',
+                                        agentPhone: matchedAgent?.phone ?? '',
+                                        city: matchedAgent?.city ?? '',
+                                        shopName: matchedAgent?.locationName ?? '',
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Agent OTP verified. Please share your OTP to agent.'),
+                                    ),
+                                  );
+                                }
+                              }
+                              return;
+                            }
+
+                            safeSetState(() {
+                              inlineError = _readError(body, 'Failed to verify OTP');
+                            });
+                          } catch (error) {
+                            safeSetState(() {
+                              inlineError = error.toString().replaceFirst('Exception: ', '');
+                            });
+                          } finally {
+                            safeSetState(() => isSubmitting = false);
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Verify'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Map<String, dynamic> _decodeBody(http.Response response) {
@@ -448,9 +898,13 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
         restored[agentId] = _RequestState(
           transactionId: transactionId,
           status: status,
-          otp: (raw['otp'] ?? '').toString().trim(),
+          requestOtp: (raw['requestOtp'] ?? '').toString().trim(),
+          userConfirmOtp: (raw['userConfirmOtp'] ?? '').toString().trim(),
+          userConfirmedAt: DateTime.tryParse((raw['userConfirmedAt'] ?? '').toString()),
+          agentConfirmedAt: DateTime.tryParse((raw['agentConfirmedAt'] ?? '').toString()),
           rejectionNotified: status == 'rejected',
-          approvedNotified: status == 'approved',
+          approvedNotified: status == 'approved' &&
+              DateTime.tryParse((raw['approvedAt'] ?? '').toString()) != null,
         );
       }
 
@@ -489,6 +943,17 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
             icon: const Icon(Icons.refresh, color: Colors.black54),
             tooltip: 'Refresh',
             onPressed: _fetchAgents,
+          ),
+          IconButton(
+            icon: _isClearingAll
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.clear_all, color: Colors.black54),
+            tooltip: 'Clear all requests',
+            onPressed: _isClearingAll || _requestByAgentId.isEmpty ? null : _clearAllRequests,
           ),
         ],
       ),
@@ -571,6 +1036,7 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
               requestState: _requestByAgentId[_agents[i].id],
               onRequest: () => _sendRequest(_agents[i]),
               onCancel: () => _cancelRequest(_agents[i]),
+              onClear: (state) => _confirmClearRequest(_agents[i].id, state),
             ),
           ),
         ),
@@ -582,11 +1048,14 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
     final pendingCount = _requestByAgentId.values.where((item) => item.status == 'pending').length;
     final approvedEntry = _requestByAgentId.entries
       .where((item) => item.value.status == 'approved')
-        .cast<MapEntry<String, _RequestState>?>()
-        .firstWhere((entry) => entry != null, orElse: () => null);
+      .cast<MapEntry<String, _RequestState>?>()
+      .firstWhere((entry) => entry != null, orElse: () => null);
     final approvedAgent = approvedEntry != null
         ? _agents.where((agent) => agent.id == approvedEntry.key).cast<_AgentSummary?>().firstWhere((a) => a != null, orElse: () => null)
         : null;
+    final approvedState = approvedEntry?.value;
+    final isOtpVerified = approvedState?.approvedAt != null;
+    final firstOtp = approvedState?.requestOtp ?? '';
 
     return Container(
       width: double.infinity,
@@ -645,9 +1114,18 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Agent is approved. Please contact him for transaction.',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xff065F46)),
+                  Text(
+                    isOtpVerified
+                        ? 'Thank you for connecting. Please meet and do the transaction securely.'
+                        : 'Agent approved. Share the OTP below with the agent for verification.',
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xff065F46)),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isOtpVerified
+                        ? 'You can now verify the agent OTP to finish.'
+                        : 'OTP is generated only after approval. Please share it with the agent.',
+                    style: const TextStyle(color: Color(0xff065F46), fontSize: 12),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -681,35 +1159,76 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
                       ),
                     ],
                   ),
-                  Text('Shop Name: ${approvedAgent.locationName.isNotEmpty ? approvedAgent.locationName : '-'}'),
-                  Text('City: ${approvedAgent.city.isNotEmpty ? approvedAgent.city : '-'}'),
-                  if (approvedAgent.locationName.isNotEmpty)
-                    Text('Location: ${approvedAgent.locationName}'),
-                  if (approvedAgent.address.isNotEmpty)
-                    Text('Address: ${approvedAgent.address}'),
-                  if (approvedAgent.email.isNotEmpty)
-                    Text('Email: ${approvedAgent.email}'),
-                  if (approvedAgent.phone.isNotEmpty)
-                    Text('Mobile: ${approvedAgent.phone}'),
-                  Text('Requested Money: ₹${widget.amount}'),
-                  Text(
-                    'OTP: ${approvedEntry.value.otp.isEmpty ? 'Pending' : approvedEntry.value.otp}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 32,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openDirections(approvedAgent),
-                      icon: const Icon(Icons.directions_outlined, size: 15),
-                      label: const Text('Direction'),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xff059669)),
-                        foregroundColor: const Color(0xff065F46),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    Text('Shop Name: ${approvedAgent.locationName.isNotEmpty ? approvedAgent.locationName : '-'}'),
+                    Text('City: ${approvedAgent.city.isNotEmpty ? approvedAgent.city : '-'}'),
+                    if (approvedAgent.locationName.isNotEmpty)
+                      Text('Location: ${approvedAgent.locationName}'),
+                    if (approvedAgent.address.isNotEmpty)
+                      Text('Address: ${approvedAgent.address}'),
+                    if (approvedAgent.email.isNotEmpty)
+                      Text('Email: ${approvedAgent.email}'),
+                    if (approvedAgent.phone.isNotEmpty)
+                      Text('Mobile: ${approvedAgent.phone}'),
+                    Text('Requested Money: ₹${widget.amount}'),
+                    if (!isOtpVerified)
+                      Text(
+                        'First OTP: ${firstOtp.isEmpty ? 'Generating...' : firstOtp}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
+                    if (isOtpVerified)
+                      Text(
+                        'Your OTP: ${approvedEntry.value.userConfirmOtp.isEmpty ? 'Pending' : approvedEntry.value.userConfirmOtp}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    const SizedBox(height: 6),
+                    Text(
+                      approvedEntry.value.userConfirmedAt != null
+                          ? 'You have verified the agent OTP.'
+                          : 'Enter agent OTP after you meet.',
+                      style: const TextStyle(color: Colors.black54, fontSize: 12),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 32,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _openDirections(approvedAgent),
+                              icon: const Icon(Icons.directions_outlined, size: 15),
+                              label: const Text('Direction'),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xff059669)),
+                                foregroundColor: const Color(0xff065F46),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 32,
+                            child: ElevatedButton(
+                              onPressed: approvedEntry.value.userConfirmOtp.isEmpty ||
+                                      approvedEntry.value.userConfirmedAt != null
+                                  ? null
+                                  : () => _showConfirmAgentOtpDialog(approvedEntry.key, approvedEntry.value),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xff16A34A),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: Text(
+                                approvedEntry.value.userConfirmedAt != null
+                                    ? 'Verified'
+                                    : 'Verify Agent OTP',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -747,6 +1266,7 @@ class _AgentCard extends StatelessWidget {
   final _RequestState? requestState;
   final VoidCallback onRequest;
   final VoidCallback onCancel;
+  final void Function(_RequestState state) onClear;
 
   const _AgentCard({
     required this.agent,
@@ -756,6 +1276,7 @@ class _AgentCard extends StatelessWidget {
     required this.requestState,
     required this.onRequest,
     required this.onCancel,
+    required this.onClear,
   });
 
   @override
@@ -774,82 +1295,87 @@ class _AgentCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: const Color(0xFF5E4AE3).withValues(alpha: 0.12),
-            backgroundImage: agent.profilePhotoBytes != null
-                ? MemoryImage(agent.profilePhotoBytes!)
-                : null,
-            child: agent.profilePhotoBytes == null
-                ? Text(
-                    agent.name.isNotEmpty
-                        ? agent.name[0].toUpperCase()
-                        : 'A',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF5E4AE3),
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 14),
-          // Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  agent.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: Colors.black87),
-                ),
-                if (agent.locationName.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.store, size: 13,
-                          color: Colors.black38),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          agent.locationName,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black54),
-                          overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              // Avatar
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: const Color(0xFF5E4AE3).withValues(alpha: 0.12),
+                backgroundImage: agent.profilePhotoBytes != null
+                    ? MemoryImage(agent.profilePhotoBytes!)
+                    : null,
+                child: agent.profilePhotoBytes == null
+                    ? Text(
+                        agent.name.isNotEmpty
+                            ? agent.name[0].toUpperCase()
+                            : 'A',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF5E4AE3),
                         ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              // Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      agent.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: Colors.black87),
+                    ),
+                    if (agent.locationName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.store, size: 13,
+                              color: Colors.black38),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              agent.locationName,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.black54),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 13, color: Colors.blue),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        agent.city,
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.blueAccent),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 13, color: Colors.blue),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            agent.city,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.blueAccent),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 120,
-            child: _buildActionArea(),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 120,
+                child: _buildActionArea(),
+              ),
+            ],
           ),
         ],
       ),
@@ -885,6 +1411,17 @@ class _AgentCard extends StatelessWidget {
             style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
+          ElevatedButton(
+            onPressed: onRequest,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5E4AE3),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            child: const Text('Request Again'),
+          ),
+          const SizedBox(height: 6),
           OutlinedButton(
             onPressed: onCancel,
             style: OutlinedButton.styleFrom(
@@ -893,7 +1430,7 @@ class _AgentCard extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            child: const Text('Cancel'),
+            child: const Text('Cancel Latest'),
           ),
         ],
       );
@@ -919,27 +1456,65 @@ class _AgentCard extends StatelessWidget {
             ),
             child: const Text('Request'),
           ),
+          const SizedBox(height: 6),
+          OutlinedButton(
+            onPressed: requestState == null ? null : () => onClear(requestState!),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.black87,
+              side: const BorderSide(color: Colors.black26),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            child: const Text('Clear'),
+          ),
         ],
       );
     }
 
     if (status == 'approved') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xffECFDF3),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xffA7F3D0)),
-        ),
-        child: const Text(
-          'Approved',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: Color(0xff065F46),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xffECFDF3),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xffA7F3D0)),
+            ),
+            child: const Text(
+              'Approved',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xff065F46),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 6),
+          ElevatedButton(
+            onPressed: onRequest,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5E4AE3),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            child: const Text('Request Again'),
+          ),
+          const SizedBox(height: 6),
+          OutlinedButton(
+            onPressed: requestState == null ? null : () => onClear(requestState!),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.black87,
+              side: const BorderSide(color: Colors.black26),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            child: const Text('Clear'),
+          ),
+        ],
       );
     }
 
@@ -960,14 +1535,22 @@ class _AgentCard extends StatelessWidget {
 class _RequestState {
   final String transactionId;
   final String status;
-  final String otp;
+  final String requestOtp;
+  final String userConfirmOtp;
+  final DateTime? approvedAt;
+  final DateTime? userConfirmedAt;
+  final DateTime? agentConfirmedAt;
   final bool rejectionNotified;
   final bool approvedNotified;
 
   const _RequestState({
     required this.transactionId,
     required this.status,
-    this.otp = '',
+    this.requestOtp = '',
+    this.userConfirmOtp = '',
+    this.approvedAt,
+    this.userConfirmedAt,
+    this.agentConfirmedAt,
     this.rejectionNotified = false,
     this.approvedNotified = false,
   });
@@ -975,14 +1558,22 @@ class _RequestState {
   _RequestState copyWith({
     String? transactionId,
     String? status,
-    String? otp,
+    String? requestOtp,
+    String? userConfirmOtp,
+    DateTime? approvedAt,
+    DateTime? userConfirmedAt,
+    DateTime? agentConfirmedAt,
     bool? rejectionNotified,
     bool? approvedNotified,
   }) {
     return _RequestState(
       transactionId: transactionId ?? this.transactionId,
       status: status ?? this.status,
-      otp: otp ?? this.otp,
+      requestOtp: requestOtp ?? this.requestOtp,
+      userConfirmOtp: userConfirmOtp ?? this.userConfirmOtp,
+      approvedAt: approvedAt ?? this.approvedAt,
+      userConfirmedAt: userConfirmedAt ?? this.userConfirmedAt,
+      agentConfirmedAt: agentConfirmedAt ?? this.agentConfirmedAt,
       rejectionNotified: rejectionNotified ?? this.rejectionNotified,
       approvedNotified: approvedNotified ?? this.approvedNotified,
     );
@@ -1003,6 +1594,7 @@ class _AgentSummary {
   final double? latitude;
   final double? longitude;
   final bool isVerified;
+  final bool available;
   final Uint8List? profilePhotoBytes;
 
   const _AgentSummary({
@@ -1016,6 +1608,7 @@ class _AgentSummary {
     this.latitude,
     this.longitude,
     required this.isVerified,
+    required this.available,
     this.profilePhotoBytes,
   });
 
@@ -1036,6 +1629,7 @@ class _AgentSummary {
     final latitude = _toDouble(json['latitude']);
     final longitude = _toDouble(json['longitude']);
     final isVerified = (json['isVerified'] as bool?) ?? false;
+    final available = (json['available'] as bool?) ?? false;
 
     // Profile photo
     final rawPhoto = _asString(user['profileImage']).isNotEmpty
@@ -1063,6 +1657,7 @@ class _AgentSummary {
       latitude: latitude,
       longitude: longitude,
       isVerified: isVerified,
+      available: available,
       profilePhotoBytes: photoBytes,
     );
   }

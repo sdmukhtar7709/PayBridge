@@ -171,6 +171,10 @@ class AgentLiveRequest {
   final int amount;
   final String status;
   final String type;
+  final String agentConfirmOtp;
+  final DateTime? approvedAt;
+  final DateTime? userConfirmedAt;
+  final DateTime? agentConfirmedAt;
 
   const AgentLiveRequest({
     required this.id,
@@ -183,6 +187,10 @@ class AgentLiveRequest {
     required this.amount,
     required this.status,
     this.type = 'Cash to UPI',
+    this.agentConfirmOtp = '',
+    this.approvedAt,
+    this.userConfirmedAt,
+    this.agentConfirmedAt,
   });
 
   factory AgentLiveRequest.fromJson(Map<String, dynamic> json) {
@@ -213,11 +221,19 @@ class AgentLiveRequest {
         type: AgentProfileData._toStringValue(json['requestType']).trim().isNotEmpty
           ? AgentProfileData._toStringValue(json['requestType']).trim()
           : 'Cash to UPI',
+        agentConfirmOtp: AgentProfileData._toStringValue(json['agentConfirmOtp']).trim(),
+        approvedAt: DateTime.tryParse((json['approvedAt'] ?? '').toString()),
+        userConfirmedAt: DateTime.tryParse((json['userConfirmedAt'] ?? '').toString()),
+        agentConfirmedAt: DateTime.tryParse((json['agentConfirmedAt'] ?? '').toString()),
     );
   }
 
   AgentLiveRequest copyWith({
     String? status,
+    String? agentConfirmOtp,
+    DateTime? approvedAt,
+    DateTime? userConfirmedAt,
+    DateTime? agentConfirmedAt,
   }) {
     return AgentLiveRequest(
       id: id,
@@ -230,6 +246,10 @@ class AgentLiveRequest {
       amount: amount,
       status: status ?? this.status,
       type: type,
+      agentConfirmOtp: agentConfirmOtp ?? this.agentConfirmOtp,
+      approvedAt: approvedAt ?? this.approvedAt,
+      userConfirmedAt: userConfirmedAt ?? this.userConfirmedAt,
+      agentConfirmedAt: agentConfirmedAt ?? this.agentConfirmedAt,
     );
   }
 }
@@ -293,15 +313,15 @@ class AgentTransactionHistoryItem {
 }
 
 class AgentService {
-  static const String _apiBaseUrl = ApiConfig.baseUrl;
+  static final String _apiBaseUrl = ApiConfig.baseUrl;
 
-  static const String _registerPath = '$_apiBaseUrl/register-agent';
-  static const String _loginPath = '$_apiBaseUrl/login-agent';
-  static const String _agentProfilePath = '$_apiBaseUrl/agent/profile';
-  static const String _agentManageProfilePath = '$_apiBaseUrl/agent/profile/manage';
-  static const String _agentLiveRequestsPath = '$_apiBaseUrl/agent/transactions/live-requests';
-  static const String _agentHistoryPath = '$_apiBaseUrl/agent/transactions/history';
-  static const String _transactionConfirmPath = '$_apiBaseUrl/transactions/confirm';
+  static final String _registerPath = '$_apiBaseUrl/register-agent';
+  static final String _loginPath = '$_apiBaseUrl/login-agent';
+  static final String _agentProfilePath = '$_apiBaseUrl/agent/profile';
+  static final String _agentManageProfilePath = '$_apiBaseUrl/agent/profile/manage';
+  static final String _agentLiveRequestsPath = '$_apiBaseUrl/agent/transactions/live-requests';
+  static final String _agentHistoryPath = '$_apiBaseUrl/agent/transactions/history';
+  static final String _transactionConfirmAgentPath = '$_apiBaseUrl/transactions/confirm-agent';
   static const String _agentTokenKey = 'agent_auth_token';
   static const String _cachedAgentProfileKey = 'cached_agent_profile';
 
@@ -581,7 +601,56 @@ class AgentService {
     throw Exception(_readError(body, 'Failed to reject request'));
   }
 
-  static Future<void> approveLiveRequest(String requestId) async {
+  static Future<void> archiveLiveRequest(String requestId) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final uri = Uri.parse('$_agentLiveRequestsPath/$requestId/archive');
+    final response = await http.patch(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw Exception(_readError(body, 'Failed to archive request'));
+  }
+
+  static Future<int> clearAllRequests() async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final uri = Uri.parse('$_apiBaseUrl/agent/transactions/requests/clear-all');
+    final response = await http.delete(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final deleted = body['deleted'];
+      return deleted is int ? deleted : int.tryParse('$deleted') ?? 0;
+    }
+
+    throw Exception(_readError(body, 'Failed to clear requests'));
+  }
+
+  static Future<void> approveLiveRequest({
+    required String requestId,
+  }) async {
     final token = await getToken();
     if (token == null || token.isEmpty) {
       throw Exception('Agent is not logged in');
@@ -604,7 +673,35 @@ class AgentService {
     throw Exception(_readError(body, 'Failed to approve request'));
   }
 
-  static Future<void> verifyTransactionOtp({
+  static Future<String?> verifyRequestOtp({
+    required String requestId,
+    required String otp,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Agent is not logged in');
+    }
+
+    final uri = Uri.parse('$_agentLiveRequestsPath/$requestId/verify-request-otp');
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'otp': otp}),
+    );
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final raw = body['agentConfirmOtp'];
+      return raw is String ? raw : null;
+    }
+
+    throw Exception(_readError(body, 'Failed to verify OTP'));
+  }
+
+  static Future<String?> confirmWithUserOtp({
     required String transactionId,
     required String otp,
   }) async {
@@ -614,7 +711,7 @@ class AgentService {
     }
 
     final response = await http.post(
-      Uri.parse(_transactionConfirmPath),
+      Uri.parse(_transactionConfirmAgentPath),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -627,7 +724,8 @@ class AgentService {
 
     final body = _decodeBody(response);
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return;
+      final status = body['status'];
+      return status is String ? status : null;
     }
 
     throw Exception(_readError(body, 'Failed to verify OTP'));

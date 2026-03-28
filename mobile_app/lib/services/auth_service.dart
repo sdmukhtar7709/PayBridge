@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class AuthService {
-  static const String _apiBaseUrl = ApiConfig.baseUrl;
-  static const String _authPath = '$_apiBaseUrl/auth';
+  static final String _apiBaseUrl = ApiConfig.baseUrl;
+  static final String _authPath = '$_apiBaseUrl/auth';
   static const String _tokenKey = 'auth_token';
 
   static Future<AuthResult> register(String email, String password) async {
@@ -74,7 +74,7 @@ class AuthService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     }
-    throw Exception(body['error'] ?? 'Request failed');
+    throw AuthException(_readErrorMessage(body) ?? 'Request failed');
   }
 
   static Map<String, dynamic> _decodeBody(http.Response response) {
@@ -94,6 +94,33 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
   }
+}
+
+class AuthException implements Exception {
+  final String message;
+
+  AuthException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+String? _readErrorMessage(Map<String, dynamic> body) {
+  final error = body['error'];
+  if (error is String && error.trim().isNotEmpty) {
+    return error.trim();
+  }
+  if (error is Map<String, dynamic>) {
+    final message = error['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+  }
+  final message = body['message'];
+  if (message is String && message.trim().isNotEmpty) {
+    return message.trim();
+  }
+  return null;
 }
 
 class AuthResult {
