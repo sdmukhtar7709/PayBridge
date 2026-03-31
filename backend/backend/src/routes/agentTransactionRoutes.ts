@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { sendOtpSms } from "../lib/sms.js";
 import { sendOtpEmail } from "../lib/email.js";
@@ -46,6 +46,8 @@ const historyRequestsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(50),
 });
 
+type AgentModerationStatus = "pending" | "verified" | "unverified" | "banned";
+
 function deriveCity(address?: string | null): string | null {
   if (!address) return null;
   const parts = address
@@ -54,6 +56,38 @@ function deriveCity(address?: string | null): string | null {
     .filter(Boolean);
   if (parts.length === 0) return null;
   return parts[parts.length - 1] ?? null;
+}
+
+async function requireActiveAgentProfile(req: AuthRequest, res: Response) {
+  const agentProfile = await prisma.agentProfile.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true, status: true, isBanned: true, isVerified: true },
+  });
+
+  const effectiveStatus: AgentModerationStatus =
+    (agentProfile?.status as AgentModerationStatus | null | undefined) ??
+    (agentProfile
+      ? agentProfile.isBanned
+        ? "banned"
+        : agentProfile.isVerified
+          ? "verified"
+          : "pending"
+      : "pending");
+
+  if (!agentProfile) {
+    res.status(404).json({ error: "Agent profile not found" });
+    return null;
+  }
+  if (effectiveStatus === "banned") {
+    res.status(403).json({ error: "Agent is banned" });
+    return null;
+  }
+  if (effectiveStatus !== "verified") {
+    res.status(403).json({ error: "Agent is not verified" });
+    return null;
+  }
+
+  return agentProfile;
 }
 
 // 🔐 AGENT-ONLY: List live requests for this agent (includes confirmed for realtime completion)
@@ -65,14 +99,8 @@ router.get(
   async (req: AuthRequest, res) => {
     const { limit } = req.query as unknown as z.infer<typeof liveRequestsQuerySchema>;
 
-    const agentProfile = await prisma.agentProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-
-    if (!agentProfile) {
-      return res.status(404).json({ error: "Agent profile not found" });
-    }
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const txItems = await prisma.agentTransaction.findMany({
       where: {
@@ -134,14 +162,8 @@ router.delete(
   requireAuth,
   requireRole(["agent"]),
   async (req: AuthRequest, res) => {
-    const agentProfile = await prisma.agentProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-
-    if (!agentProfile) {
-      return res.status(404).json({ error: "Agent profile not found" });
-    }
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const result = await prisma.agentTransaction.deleteMany({
       where: { agentId: agentProfile.id },
@@ -159,14 +181,8 @@ router.patch(
   async (req: AuthRequest, res) => {
     const { id } = req.params;
 
-    const agentProfile = await prisma.agentProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-
-    if (!agentProfile) {
-      return res.status(404).json({ error: "Agent profile not found" });
-    }
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const existing = await prisma.agentTransaction.findUnique({ where: { id } });
     if (!existing) {
@@ -226,14 +242,8 @@ router.post(
     const { id } = req.params;
     const otp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
 
-    const agentProfile = await prisma.agentProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-
-    if (!agentProfile) {
-      return res.status(404).json({ error: "Agent profile not found" });
-    }
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const existing = await prisma.agentTransaction.findUnique({ where: { id } });
     if (!existing) {
@@ -306,14 +316,8 @@ router.patch(
   async (req: AuthRequest, res) => {
     const { id } = req.params;
 
-    const agentProfile = await prisma.agentProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-
-    if (!agentProfile) {
-      return res.status(404).json({ error: "Agent profile not found" });
-    }
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const existing = await prisma.agentTransaction.findUnique({ where: { id } });
     if (!existing) {
@@ -343,14 +347,8 @@ router.patch(
   async (req: AuthRequest, res) => {
     const { id } = req.params;
 
-    const agentProfile = await prisma.agentProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-
-    if (!agentProfile) {
-      return res.status(404).json({ error: "Agent profile not found" });
-    }
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const existing = await prisma.agentTransaction.findUnique({ where: { id } });
     if (!existing) {
@@ -385,14 +383,8 @@ router.get(
   async (req: AuthRequest, res) => {
     const { limit } = req.query as unknown as z.infer<typeof historyRequestsQuerySchema>;
 
-    const agentProfile = await prisma.agentProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-
-    if (!agentProfile) {
-      return res.status(404).json({ error: "Agent profile not found" });
-    }
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const txItems = await prisma.agentTransaction.findMany({
       where: {
@@ -443,6 +435,9 @@ router.get(
     const { accountId, type, from, to, limit, offset } =
       req.query as unknown as z.infer<typeof listTransactionsQuerySchema>;
 
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
+
     const where: any = { accountId };
     if (type) where.type = type;
     if (from) where.occurredAt = { ...(where.occurredAt || {}), gte: new Date(from) };
@@ -472,6 +467,9 @@ router.post(
     const { accountId, type, amount, description, occurredAt, toAccountId } =
       req.body as z.infer<typeof createTransactionSchema>;
 
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
+
     const tx = await prisma.transaction.create({
       data: {
         accountId,
@@ -497,6 +495,9 @@ router.patch(
   async (req: AuthRequest, res) => {
     const { id } = req.params;
     const { status } = req.body as z.infer<typeof approveSchema>;
+
+    const agentProfile = await requireActiveAgentProfile(req, res);
+    if (!agentProfile) return;
 
     const tx = await prisma.transaction.findUnique({ where: { id } });
     if (!tx) return res.status(404).json({ error: "Transaction not found" });

@@ -3,143 +3,266 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cash IO | Admin Dashboard</title>
+  <title>CASHLYT | Admin Panel</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- HEADER -->
-  <header class="header">
-    <div class="brand">
-      <div class="logo-dot"></div>
+  <div class="app-bg"></div>
+
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-mark">C</div>
       <div>
-        <h1>Cash IO Admin</h1>
-        <p class="subtitle">Operational overview · Demo UI</p>
+        <h1>CASHLYT Admin Control</h1>
+        <p>Secure agent operations and verification center</p>
       </div>
     </div>
-    <div class="admin-profile">
-      <div class="status-chip success">Online</div>
-      <div class="admin-name">Admin</div>
-      <div class="avatar">A</div>
+    <div class="top-actions">
+      <button id="logoutBtn" class="btn btn-danger">Logout</button>
     </div>
   </header>
 
-  <main class="container">
-    <!-- METRICS GRID -->
-    <section class="stats">
-      <article class="card stat-card">
-        <p class="label">Active Users</p>
-        <div class="stat-row">
-          <span id="userCount" class="stat-value">128</span>
-          <span class="pill pill-green">+12 today</span>
-        </div>
-      </article>
-      <article class="card stat-card">
-        <p class="label">Registered Agents</p>
-        <div class="stat-row">
-          <span id="agentCount" class="stat-value">34</span>
-          <span class="pill pill-blue">+3 new</span>
-        </div>
-      </article>
-      <article class="card stat-card">
-        <p class="label">Pending Approvals</p>
-        <div class="stat-row">
-          <span id="pendingCount" class="stat-value warning">3</span>
-          <span class="pill pill-amber">Review now</span>
-        </div>
-      </article>
-      <article class="card stat-card">
-        <p class="label">Today’s Transactions</p>
-        <div class="stat-row">
-          <span class="stat-value">₹4.2L</span>
-          <span class="pill pill-green">↑ steady</span>
-        </div>
-      </article>
-    </section>
+  <main class="layout">
+    <aside class="sidebar-nav card">
+      <h2>Navigation</h2>
+      <nav class="nav-menu" aria-label="Admin sections">
+        <button class="nav-item is-active" data-page="dashboard" type="button">Dashboard</button>
+        <button class="nav-item" data-page="agents" type="button">Agents</button>
+        <button class="nav-item" data-page="transactions" type="button">Transactions</button>
+        <button class="nav-item" data-page="settings" type="button">Settings</button>
+      </nav>
+    </aside>
 
-    <!-- SERVICE CONTROL -->
-    <section class="card service-card">
-      <div class="section-head">
-        <div>
-          <h2>Service Control</h2>
-          <p class="muted">Toggle platform availability (UI only)</p>
-        </div>
-        <div class="service-toggle">
-          <label class="switch">
-            <input type="checkbox" id="serviceToggle" checked />
-            <span class="slider"></span>
-          </label>
-          <span id="serviceStatus" class="status-chip info">Service Active</span>
-        </div>
-      </div>
-      <p class="note">* TODO: Wire to backend to start/stop services platform-wide.</p>
-    </section>
+    <section class="main-shell">
+      <section class="page is-active" id="page-dashboard" data-page="dashboard">
+        <section class="stats-grid">
+          <article class="card stat-card">
+            <p>Total Agents</p>
+            <h3 id="totalAgents">0</h3>
+          </article>
+          <article class="card stat-card">
+            <p>Verified Agents</p>
+            <h3 id="verifiedAgents">0</h3>
+          </article>
+          <article class="card stat-card">
+            <p>Pending Agents</p>
+            <h3 id="pendingAgents">0</h3>
+          </article>
+          <article class="card stat-card">
+            <p>Banned Agents</p>
+            <h3 id="bannedAgents">0</h3>
+          </article>
+        </section>
 
-    <!-- AGENT APPROVALS -->
-    <section class="card agents-card">
-      <div class="section-head">
-        <div>
-          <h2>Agent Approval Requests</h2>
-          <p class="muted">Review documents and approve/reject agents</p>
-        </div>
-        <div class="filters">
-          <span class="pill pill-blue">Pending</span>
-          <span class="pill pill-grey">Approved</span>
-        </div>
-      </div>
+        <section class="dashboard-grid">
+          <section class="card panel-card">
+            <div class="panel-head">
+              <div>
+                <h2>Today's Snapshot</h2>
+                <p>Current day transaction performance.</p>
+              </div>
+            </div>
+            <div class="overview-grid">
+              <article class="status-box status-card">
+                <p>Transactions Today</p>
+                <strong id="dashboardTransactionsToday">0</strong>
+              </article>
+              <article class="status-box status-card">
+                <p>Total Volume Today</p>
+                <strong id="dashboardVolumeToday">Rs 0</strong>
+              </article>
+              <article class="status-box status-card">
+                <p>Success Rate Today</p>
+                <strong id="dashboardSuccessRateToday">0%</strong>
+              </article>
+            </div>
+          </section>
 
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Profile</th>
-              <th>City</th>
-              <th>Documents</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Mukhtar Sayyad</td>
-              <td><button class="ghost" onclick="viewProfile()">Profile</button></td>
-              <td>Pune</td>
-              <td><button class="ghost" onclick="viewDocs()">View</button></td>
-              <td><span class="pill pill-amber">Pending</span></td>
-              <td class="action-cell">
-                <button class="approve" onclick="approveAgent()">Approve</button>
-                <button class="reject" onclick="rejectAgent()">Reject</button>
-              </td>
-            </tr>
-            <tr>
-              <td>Rahul Patil</td>
-              <td><button class="ghost" onclick="viewProfile()">Profile</button></td>
-              <td>Mumbai</td>
-              <td><button class="ghost" onclick="viewDocs()">View</button></td>
-              <td><span class="pill pill-amber">Pending</span></td>
-              <td class="action-cell">
-                <button class="approve" onclick="approveAgent()">Approve</button>
-                <button class="reject" onclick="rejectAgent()">Reject</button>
-              </td>
-            </tr>
-            <tr>
-              <td>Shreya Kulkarni</td>
-              <td><button class="ghost" onclick="viewProfile()">Profile</button></td>
-              <td>Nashik</td>
-              <td><button class="ghost" onclick="viewDocs()">View</button></td>
-              <td><span class="pill pill-blue">Reviewing</span></td>
-              <td class="action-cell">
-                <button class="approve" onclick="approveAgent()">Approve</button>
-                <button class="reject" onclick="rejectAgent()">Reject</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          <section class="card panel-card">
+            <div class="panel-head report-head">
+              <div>
+                <h2>Transactions Per Day</h2>
+                <p>Live daily activity from backend reports API.</p>
+              </div>
+              <button id="reportRefreshBtn" class="btn btn-ghost" type="button">Refresh Data</button>
+            </div>
 
-      <p class="note">* TODO: Connect approvals, document fetch, and audit logging to backend services.</p>
+            <div class="report-chart" id="reportChart" aria-label="Transaction status chart">
+              <div id="reportDayBars" class="day-bars"></div>
+            </div>
+          </section>
+
+          <section class="card panel-card">
+            <div class="panel-head">
+              <div>
+                <h2>System Status</h2>
+                <p>Live health and operations snapshot.</p>
+              </div>
+            </div>
+            <div class="overview-grid">
+              <article class="status-box status-card">
+                <p>Backend Health</p>
+                <strong id="dashboardHealthStatus">Checking...</strong>
+              </article>
+              <article class="status-box status-card">
+                <p>Active Agents</p>
+                <strong id="dashboardActiveAgents">0</strong>
+              </article>
+              <article class="status-box status-card">
+                <p>Ongoing Requests</p>
+                <strong id="dashboardOngoingRequests">0</strong>
+              </article>
+              <article class="status-box status-card">
+                <p>Total Transactions</p>
+                <strong id="reportTotalTransactions">0</strong>
+              </article>
+              <article class="status-box status-card">
+                <p>Total Volume</p>
+                <strong id="reportTotalVolume">Rs 0</strong>
+              </article>
+              <article class="status-box status-card">
+                <p>Success Rate</p>
+                <strong id="reportSuccessRate">0%</strong>
+              </article>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section class="page" id="page-agents" data-page="agents">
+        <section class="card panel-card">
+          <div class="panel-head">
+            <div>
+              <h2>Agent Management</h2>
+              <p>Verify or ban agents using backend admin APIs.</p>
+            </div>
+            <div class="filters">
+              <input id="agentSearch" type="text" placeholder="Search name or phone" />
+              <select id="statusFilter">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+                <option value="banned">Banned</option>
+              </select>
+              <button id="refreshBtn" class="btn btn-ghost" type="button">Refresh Data</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>City / State</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="agentsTbody">
+                <tr>
+                  <td colspan="7" class="empty-state">Login as admin to load agents.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card panel-card">
+          <h2>Selected Agent Details</h2>
+          <div id="selectedAgent" class="agent-detail">
+            <p>Select an agent from the table to view full details.</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="page-transactions" data-page="transactions">
+        <section class="card panel-card">
+          <div class="panel-head">
+            <div>
+              <h2>Transactions</h2>
+              <p>Review cash requests raised by users and handled by agents.</p>
+            </div>
+            <div class="filters">
+              <input id="txSearch" type="text" placeholder="Search user or agent" />
+              <select id="txStatusFilter">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="archived">Archived</option>
+              </select>
+              <button id="txRefreshBtn" class="btn btn-ghost" type="button">Refresh Data</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>User</th>
+                  <th>Agent</th>
+                  <th>Amount</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="transactionsTbody">
+                <tr>
+                  <td colspan="7" class="empty-state">Open Transactions tab and refresh to load records.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="page-settings" data-page="settings">
+        <section class="card panel-card settings-grid">
+          <div>
+            <h2>Settings</h2>
+            <p>Environment and admin session details.</p>
+          </div>
+          <div class="field-group">
+            <label for="apiBaseUrl">API Base URL</label>
+            <input id="apiBaseUrl" type="text" placeholder="http://localhost:4000" />
+          </div>
+          <div class="status-box">
+            <p>Session</p>
+            <strong id="sessionStatus">Checking admin session...</strong>
+          </div>
+          <div class="status-box">
+            <p>Backend Health</p>
+            <strong id="healthStatus">Unknown</strong>
+          </div>
+          <div class="status-box">
+            <p>Version</p>
+            <strong id="versionStatus">-</strong>
+          </div>
+        </section>
+      </section>
     </section>
   </main>
+
+  <div id="txDetailModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="txDetailTitle">
+      <div class="modal-head">
+        <h2 id="txDetailTitle">Transaction Details</h2>
+        <button id="txDetailCloseBtn" class="btn btn-ghost" type="button">Close</button>
+      </div>
+      <div id="txDetailBody" class="modal-body">
+        <p class="empty-state">Select a confirmed transaction to view details.</p>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
 
   <script src="script.js"></script>
 </body>

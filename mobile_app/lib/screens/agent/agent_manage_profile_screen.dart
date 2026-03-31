@@ -12,7 +12,8 @@ class AgentManageProfileScreen extends StatefulWidget {
   const AgentManageProfileScreen({super.key});
 
   @override
-  State<AgentManageProfileScreen> createState() => _AgentManageProfileScreenState();
+  State<AgentManageProfileScreen> createState() =>
+      _AgentManageProfileScreenState();
 }
 
 class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
@@ -91,7 +92,9 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
     const genders = ['Male', 'Female', 'Other'];
     const maritalStatuses = ['Single', 'Married', 'Other'];
 
-    _selectedGender = genders.contains(profile.gender) ? profile.gender! : 'Male';
+    _selectedGender = genders.contains(profile.gender)
+        ? profile.gender!
+        : 'Male';
     _selectedMaritalStatus = maritalStatuses.contains(profile.maritalStatus)
         ? profile.maritalStatus!
         : 'Single';
@@ -105,7 +108,9 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
 
   Uint8List? get _currentPhotoBytes {
     if (_pickedImage != null) return null;
-    if (_profileImageData == null || _profileImageData!.trim().isEmpty) return null;
+    if (_profileImageData == null || _profileImageData!.trim().isEmpty) {
+      return null;
+    }
     final raw = _profileImageData!.trim();
     final base64Part = raw.startsWith('data:image') && raw.contains(',')
         ? raw.substring(raw.indexOf(',') + 1)
@@ -216,6 +221,8 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
       return;
     }
 
+    final locationNameToSave = shopName;
+
     setState(() => _isSaving = true);
     try {
       await AgentService.manageProfile(
@@ -231,7 +238,7 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
           'profileImage': _profileImageData,
         },
         agentProfile: {
-          'locationName': shopName,
+          'locationName': locationNameToSave,
           'city': city,
           'cashLimit': cashLimit,
           'available': _available,
@@ -252,22 +259,27 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xfff6f9ff),
+      backgroundColor: const Color(0xffF5F7FB),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0.5,
-        title: const Text('Manage Agent Profile', style: TextStyle(color: Colors.black87)),
+        elevation: 0.4,
+        title: const Text(
+          'Manage Agent Profile',
+          style: TextStyle(color: Colors.black87),
+        ),
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -294,22 +306,30 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                   children: [
                     InkWell(
                       onTap: _showImagePicker,
-                      borderRadius: BorderRadius.circular(34),
+                      borderRadius: BorderRadius.circular(44),
                       child: Stack(
                         alignment: Alignment.bottomRight,
                         children: [
                           CircleAvatar(
-                            radius: 34,
+                            radius: 44,
                             backgroundColor: const Color(0xffe0f2fe),
                             backgroundImage: _currentPhotoFile != null
                                 ? FileImage(_currentPhotoFile!)
-                                : (_currentPhotoBytes != null ? MemoryImage(_currentPhotoBytes!) : null),
-                            child: _currentPhotoFile == null && _currentPhotoBytes == null
-                                ? const Icon(Icons.person, size: 34, color: Colors.blue)
+                                : (_currentPhotoBytes != null
+                                      ? MemoryImage(_currentPhotoBytes!)
+                                      : null),
+                            child:
+                                _currentPhotoFile == null &&
+                                    _currentPhotoBytes == null
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: Colors.blue,
+                                  )
                                 : null,
                           ),
                           Container(
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
@@ -320,7 +340,11 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.edit, size: 14, color: Colors.blue),
+                            child: const Icon(
+                              Icons.edit,
+                              size: 16,
+                              color: Colors.blue,
+                            ),
                           ),
                         ],
                       ),
@@ -330,7 +354,10 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Profile photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                          const Text(
+                            'Profile photo',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                           const SizedBox(height: 6),
                           OutlinedButton.icon(
                             onPressed: _showImagePicker,
@@ -342,7 +369,12 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
+                const Text(
+                  'Personal Info',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
                 IgnorePointer(
                   child: Opacity(
                     opacity: 0.75,
@@ -382,7 +414,9 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                         value: _selectedGender,
                         items: const ['Male', 'Female', 'Other'],
                         onChanged: (value) {
-                          if (value != null) setState(() => _selectedGender = value);
+                          if (value != null) {
+                            setState(() => _selectedGender = value);
+                          }
                         },
                       ),
                     ),
@@ -393,7 +427,9 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                         value: _selectedMaritalStatus,
                         items: const ['Single', 'Married', 'Other'],
                         onChanged: (value) {
-                          if (value != null) setState(() => _selectedMaritalStatus = value);
+                          if (value != null) {
+                            setState(() => _selectedMaritalStatus = value);
+                          }
                         },
                       ),
                     ),
@@ -406,6 +442,12 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                   controller: _ageController,
                   keyboardType: TextInputType.number,
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Location',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
                 CustomTextField(
                   hint: 'Address',
                   icon: Icons.location_on,
@@ -414,10 +456,17 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                   maxLines: 3,
                   textCapitalization: TextCapitalization.sentences,
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Agent Info',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
                 CustomTextField(
                   hint: 'Shop Name',
                   icon: Icons.store_mall_directory_outlined,
                   controller: _shopNameController,
+                  keyboardType: TextInputType.name,
                   textCapitalization: TextCapitalization.words,
                 ),
                 CustomTextField(
@@ -432,21 +481,32 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
                   controller: _cashLimitController,
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
+                const Text(
+                  'Availability',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _available,
                   onChanged: (value) => setState(() => _available = value),
                   title: const Text('Available for customers'),
-                  subtitle: Text(_isVerified ? 'Verified agent account' : 'Verification pending'),
+                  subtitle: Text(
+                    _isVerified
+                        ? 'Verified agent account'
+                        : 'Verification pending',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: _isSaving ? null : _handleSave,
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 52),
-                    backgroundColor: Colors.blue,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: const Color(0xff2563EB),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: Text(
                     _isSaving ? 'Saving...' : 'Save Changes',
@@ -470,18 +530,29 @@ class _AgentManageProfileScreenState extends State<AgentManageProfileScreen> {
     return DropdownButtonFormField<String>(
       initialValue: value,
       items: items
-          .map(
-            (item) => DropdownMenuItem(
-              value: item,
-              child: Text(item),
-            ),
-          )
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
           .toList(),
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        filled: true,
+        fillColor: const Color(0xffF8FAFC),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xffE2E8F0), width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xffE2E8F0), width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xff2563EB), width: 1),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
       ),
     );
   }

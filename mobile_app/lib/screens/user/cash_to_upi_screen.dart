@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../services/location_service.dart';
 import '../../services/user_service.dart';
-import 'available_agents_screen.dart';
-import 'my_requests_screen.dart';
+import 'available_agents/available_agents_screen.dart';
+import 'transactions/my_requests_screen.dart';
 
 class CashToUpiScreen extends StatefulWidget {
   const CashToUpiScreen({super.key});
@@ -21,7 +21,6 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
   bool _isFetchingLocation = false;
   double? _latitude;
   double? _longitude;
-  _LastAvailabilityArgs? _lastAvailability;
 
   @override
   void dispose() {
@@ -77,31 +76,137 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                controller: _amountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Amount',
-                  prefixIcon: const Icon(Icons.currency_rupee),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              _headerSection(
+                title: 'Deposit Cash',
+                subtitle: 'Convert your cash into digital balance',
+              ),
+              const SizedBox(height: 18),
+              _sectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Amount',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _amountController,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '₹ 0',
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: Color(0xFF2B59FF), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Min ₹100 • Max ₹10,000',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _quickAmountButton('500'),
+                        _quickAmountButton('1000'),
+                        _quickAmountButton('2000'),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              _locationToggle(),
+              const SizedBox(height: 14),
+              _sectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Location',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isFetchingLocation ? null : _useDeviceLocation,
+                        icon: _isFetchingLocation
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.my_location),
+                        label: Text(
+                          _isFetchingLocation
+                              ? 'Fetching Current Location...'
+                              : 'Use Current Location',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _cityController,
+                      onChanged: (value) {
+                        final hasManualCity = value.trim().isNotEmpty;
+                        if (hasManualCity && _useCurrentLocation) {
+                          setState(() {
+                            _useCurrentLocation = false;
+                            _latitude = null;
+                            _longitude = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Enter City',
+                        hintText: 'Enter City',
+                        prefixIcon: const Icon(Icons.location_city_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (_isFetchingLocation) ...[
                 const SizedBox(height: 8),
                 const LinearProgressIndicator(),
               ],
-              const SizedBox(height: 16),
-              TextField(
-                controller: _cityController,
-                enabled: !_useCurrentLocation,
-                decoration: InputDecoration(
-                  labelText: 'City (if not using location)',
-                  prefixIcon: const Icon(Icons.location_city_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
@@ -123,25 +228,34 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
                     transactionType: 'Cash → UPI',
                     amount: amount,
                   );
-                  setState(() => _lastAvailability = args);
                   _openAvailableAgents(args);
                 },
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2B59FF),
+                  foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Check Agent Availability'),
+                child: const Text('Find Nearby Agents'),
               ),
-              if (_lastAvailability != null) ...[
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () => _openAvailableAgents(_lastAvailability!),
-                  icon: const Icon(Icons.restore),
-                  label: const Text('Regain Available Agents Screen'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
+              const SizedBox(height: 16),
+              _sectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Why this is safe',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    SizedBox(height: 10),
+                    _TrustBullet(text: 'Verified Agents Only'),
+                    SizedBox(height: 8),
+                    _TrustBullet(text: 'Secure OTP-Based Exchange'),
+                    SizedBox(height: 8),
+                    _TrustBullet(text: 'Safe & Transparent Transactions'),
+                  ],
                 ),
-              ],
+              ),
               const SizedBox(height: 10),
               OutlinedButton.icon(
                 onPressed: () {
@@ -150,20 +264,28 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
                   );
                 },
                 icon: const Icon(Icons.history),
-                label: const Text('View My Raised Requests'),
+                label: const Text('View My Requests'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                '* Nearby availability will be filtered based on your location and registered trusted Cash IO agents.',
-                style: TextStyle(color: Colors.black54, height: 1.4),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _quickAmountButton(String amount) {
+    return ActionChip(
+      label: Text('₹$amount'),
+      onPressed: () {
+        _amountController.text = amount;
+      },
+      backgroundColor: const Color(0xFFF2F5FF),
+      side: const BorderSide(color: Color(0xFFD4DEFF)),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w600),
     );
   }
 
@@ -182,46 +304,81 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
     );
   }
 
-  Widget _locationToggle() {
+  Widget _headerSection({required String title, required String subtitle}) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF2F5FF),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: const TextStyle(color: Colors.black54, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.location_on, color: Colors.blue),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'Use Current Location',
-              style: TextStyle(fontWeight: FontWeight.w600),
+      child: child,
+    );
+  }
+}
+
+class _TrustBullet extends StatelessWidget {
+  final String text;
+
+  const _TrustBullet({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 2),
+          child: Text(
+            '✔',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF2B59FF),
             ),
           ),
-          Switch(
-            value: _useCurrentLocation,
-            onChanged: (val) async {
-              if (val) {
-                await _useDeviceLocation();
-                return;
-              }
-              setState(() {
-                _useCurrentLocation = false;
-                _latitude = null;
-                _longitude = null;
-              });
-            },
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.black87, height: 1.3),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

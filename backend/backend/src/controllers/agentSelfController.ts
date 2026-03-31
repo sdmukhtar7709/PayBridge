@@ -98,6 +98,7 @@ export async function createAgentProfile(req: Request, res: Response) {
     data: {
       userId,
       cashLimit: parsed.data.cashLimit,
+      status: "pending",
       isVerified: false,
       isBanned: false,
       available: false
@@ -121,7 +122,14 @@ export async function updateAgentProfile(req: Request, res: Response) {
     return res.status(403).json({ error: "Only agents can manage this profile." });
   }
 
-  const existingAgentProfile = await prisma.agentProfile.findUnique({ where: { userId } });
+  const existingAgentProfile = await prisma.agentProfile.findUnique({
+    where: { userId },
+    select: { id: true, isBanned: true, city: true },
+  });
+
+  if (existingAgentProfile?.isBanned) {
+    return res.status(403).json({ error: "Agent is banned" });
+  }
 
   const manageParsed = agentManageProfileSchema.safeParse(req.body);
 
@@ -231,6 +239,7 @@ export async function updateAgentProfile(req: Request, res: Response) {
             agentUpdateData.longitude !== undefined
               ? (agentUpdateData.longitude as number)
               : null,
+          status: "pending",
           isVerified: false,
           isBanned: false,
         },

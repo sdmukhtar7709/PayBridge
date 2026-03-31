@@ -18,6 +18,7 @@ const updateProfileSchema = z
     maritalStatus: z.string().trim().optional(),
     age: z.coerce.number().int().min(1).max(120).optional(),
     address: z.string().trim().optional(),
+    city: z.string().trim().max(50).optional(),
     profileImage: z.string().trim().optional(),
   })
   .strict();

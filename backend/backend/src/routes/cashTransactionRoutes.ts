@@ -7,8 +7,7 @@ import { confirmTransactionByAgent, confirmTransactionByUser } from "../controll
 import { getTransactionStatus } from "../controllers/transactionController.js";
 import { cancelTransaction } from "../controllers/transactionController.js";
 import { listUserRequests } from "../controllers/transactionController.js";
-import { archiveUserRequest } from "../controllers/transactionController.js";
-import { clearAllUserRequests } from "../controllers/transactionController.js";
+import { rateAgentForTransaction } from "../controllers/transactionController.js";
 import { z } from "zod";
 
 const router = Router();
@@ -25,6 +24,11 @@ router.post(
 const confirmSchema = z.object({
   transactionId: z.string().uuid(),
   otp: z.string().length(4),
+});
+
+const rateSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(500).optional(),
 });
 
 router.post(
@@ -60,15 +64,10 @@ router.get(
 );
 
 router.patch(
-  "/requests/:id/archive",
+  "/requests/:id/rate",
   requireAuth,
-  archiveUserRequest
-);
-
-router.delete(
-  "/requests/clear-all",
-  requireAuth,
-  clearAllUserRequests
+  validate(rateSchema),
+  rateAgentForTransaction
 );
 
 export default router;

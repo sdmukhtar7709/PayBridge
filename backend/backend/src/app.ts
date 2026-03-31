@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import bodyParser from "body-parser";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { env, allowedOrigins } from "./config/env.js";
 import { PrismaClient } from "@prisma/client";
 import { readFileSync } from "fs";
@@ -29,7 +31,7 @@ import agentPublicRoutes from "./routes/agentPublicRoutes.js";
 import agentRegisterRoutes from "./routes/agentRegisterRoutes.js";
 import mapsProxyRoutes from "./routes/mapsProxyRoutes.js";
 import cashTransactionRoutes from "./routes/cashTransactionRoutes.js";
-import authRoutes from "./routes/auth.routes.js";
+import authRoutes from "./features/auth/routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 
 // Middleware
@@ -42,6 +44,9 @@ import logger from "./lib/logger.js";
 
 const prisma = new PrismaClient();
 const app = express();
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDirPath = path.dirname(currentFilePath);
+const adminUiPath = path.resolve(currentDirPath, "../../../admin");
 
 const corsOrigins =
   env.nodeEnv === "development" || allowedOrigins.length === 0
@@ -75,6 +80,18 @@ app.use(
 );
 
 app.use(auditLogger);
+
+// Serve static admin UI without colliding with existing /admin API routes.
+app.use("/admin-ui", express.static(adminUiPath));
+app.get("/admin-ui", (_req, res) => {
+  res.redirect("/admin-ui/AuthScreen/index.html");
+});
+app.get("/admin/AuthScreen/index.html", (_req, res) => {
+  res.redirect("/admin-ui/AuthScreen/index.html");
+});
+app.get("/admin/index.html", (_req, res) => {
+  res.redirect("/admin-ui/index.html");
+});
 
 // Prometheus metrics middleware
 app.use((req, res, next) => {

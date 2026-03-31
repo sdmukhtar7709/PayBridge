@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login & Signup Form</title>
+    <title>CASHLYT Admin Auth</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
@@ -11,31 +11,35 @@
 </head>
 
 <body>
+    <div class="auth-meta">
+        <label for="apiBaseInput">API Base</label>
+        <input id="apiBaseInput" type="text" placeholder="http://localhost:4000" />
+        <a class="dashboard-link" href="../index.html">Open Admin Dashboard</a>
+    </div>
+
     <div class="auth-wrapper">
         <div class="background-shape"></div>
         <div class="secondary-shape"></div>
         <div class="credentials-panel signin">
-            <h2 class="slide-element">Login</h2>
-            <form action="#">
+            <h2 class="slide-element">Admin Login</h2>
+            <form id="loginForm" action="#">
                 <div class="field-wrapper slide-element">
-                    <input type="text" required>
-                    <label for="">Username</label>
+                    <input id="loginEmail" type="email" required>
+                    <label for="loginEmail">Email</label>
                     <i class="fa-solid fa-user"></i>
                 </div>
 
                 <div class="field-wrapper slide-element">
-                    <input type="password" required>
-                    <label for="">Password</label>
+                    <input id="loginPassword" type="password" required minlength="8">
+                    <label for="loginPassword">Password</label>
                     <i class="fa-solid fa-lock"></i>
                 </div>
 
                 <div class="field-wrapper slide-element">
-                    <button class="submit-button" type="submit">Login</button>
+                    <button id="loginSubmit" class="submit-button" type="submit">Login</button>
                 </div>
 
-                <div class="switch-link slide-element">
-                    <p>Don't have an account? <br> <a href="#" class="register-trigger">Sign Up</a></p>
-                </div>
+                <p id="loginStatus" class="form-status slide-element" aria-live="polite"></p>
             </form>
         </div>
 
@@ -43,44 +47,9 @@
             <h2 class="slide-element">WELCOME BACK!</h2>
         </div>
 
-        <div class="credentials-panel signup">
-            <h2 class="slide-element">Register</h2>
-            <form action="#">
-                <div class="field-wrapper slide-element">
-                    <input type="text" required>
-                    <label for="">Username</label>
-                    <i class="fa-solid fa-user"></i>
-                </div>
-
-                <div class="field-wrapper slide-element">
-                    <input type="email" required>
-                    <label for="">Email</label>
-                    <i class="fa-solid fa-envelope"></i>
-                </div>
-
-                <div class="field-wrapper slide-element">
-                    <input type="password" required>
-                    <label for="">Password</label>
-                    <i class="fa-solid fa-lock"></i>
-                </div>
-
-                <div class="field-wrapper slide-element">
-                    <button class="submit-button" type="submit">Register</button>
-                </div>
-
-                <div class="switch-link slide-element">
-                    <p>Already have an account? <br> <a href="#" class="login-trigger">Sign In</a></p>
-                </div>
-            </form>
-        </div>
-
-        <div class="welcome-section signup">
-            <h2 class="slide-element">WELCOME!</h2>
-        </div>
-
     </div>
     <div class="footer">
-        <p>Made with ❤️ by <a href="#" target="_blank">CodeZenithAI</a></p>
+        <p>Cashlyt admin access screen</p>
     </div>
 
 

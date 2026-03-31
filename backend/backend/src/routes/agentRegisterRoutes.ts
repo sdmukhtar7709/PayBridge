@@ -118,9 +118,11 @@ router.post("/register-agent", async (req, res) => {
       locationName: normalizedLocationName,
       city: normalizedCity,
       cashLimit,
-      isVerified: true, // or false if you want manual approval
+      status: "pending",
+      isVerified: false,
       isBanned: false,
-    },
+      available: false,
+    } as any,
   });
 
   const token = signToken({ id: user.id, email: user.email, role: user.role });

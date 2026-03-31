@@ -5,11 +5,12 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --watch src --exec \"node --loader ts-node/esm --experimental-specifier-resolution=node src/index.ts\"",
+    "dev": "nodemon --watch src --exec \"node --import ./register-ts-node-esm.mjs --experimental-specifier-resolution=node src/index.ts\"",
     "build": "tsc -p .",
     "start": "node dist/index.js",
     "test": "vitest run",
     "prisma": "prisma",
+    "studio": "prisma studio",
     "seed": "prisma db seed",
     "check": "tsc --noEmit -p .",
     "test:watch": "vitest watch"

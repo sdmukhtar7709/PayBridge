@@ -31,10 +31,22 @@ class CustomTextField extends StatelessWidget {
         maxLines: isPassword ? 1 : maxLines,
         textCapitalization: textCapitalization,
         decoration: InputDecoration(
-          prefixIcon: Icon(icon),
+          prefixIcon: Icon(icon, color: const Color(0xff64748B)),
           hintText: hint,
+          filled: true,
+          fillColor: const Color(0xffF8FAFC),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(19),
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xffE2E8F0), width: 1),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xffE2E8F0), width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xff2563EB), width: 1),
           ),
         ),
       ),

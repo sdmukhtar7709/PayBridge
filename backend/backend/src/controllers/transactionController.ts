@@ -2,6 +2,27 @@ import prisma from "../lib/prisma.js";
 import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth.js";
 
+type AgentModerationStatus = "pending" | "verified" | "unverified" | "banned";
+
+function resolveAgentStatus(agent: {
+  status?: string | null;
+  isBanned: boolean;
+  isVerified: boolean;
+}): AgentModerationStatus {
+  const status = (agent.status ?? "").trim().toLowerCase();
+  if (
+    status === "pending" ||
+    status === "verified" ||
+    status === "unverified" ||
+    status === "banned"
+  ) {
+    return status;
+  }
+  if (agent.isBanned) return "banned";
+  if (agent.isVerified) return "verified";
+  return "pending";
+}
+
 // Extend Express Request interface to include 'user'
 declare global {
   namespace Express {
@@ -27,12 +48,27 @@ export async function createTransaction(req: Request, res: Response) {
   // Accept either AgentProfile.id (preferred) or legacy userId input.
   const agent = await prisma.agentProfile.findFirst({
     where: {
-      isBanned: false,
       OR: [{ id: agentId }, { userId: agentId }],
+    },
+    select: {
+      id: true,
+      status: true,
+      isBanned: true,
+      isVerified: true,
+      available: true,
     },
   });
   if (!agent) {
     return res.status(400).json({ error: "Agent not available" });
+  }
+  const agentStatus = resolveAgentStatus(agent);
+  if (agentStatus === "banned") {
+    return res.status(400).json({ error: "Agent not available" });
+  }
+  if (agentStatus !== "verified") {
+    return res.status(400).json({
+      error: "Agent is not verified. Please try another or use nearby ATM and banks map feature on our app.",
+    });
   }
   if (!agent.available) {
     return res.status(400).json({ error: "Agent is offline" });
@@ -135,11 +171,19 @@ export async function confirmTransactionByAgent(req: AuthRequest, res: Response)
 
   const agentProfile = await prisma.agentProfile.findUnique({
     where: { userId: req.user.id },
-    select: { id: true },
+    select: { id: true, status: true, isBanned: true, isVerified: true },
   });
+
+  const agentStatus = agentProfile ? resolveAgentStatus(agentProfile) : "pending";
 
   if (!agentProfile || txn.agentId !== agentProfile.id) {
     return res.status(403).json({ error: "You are not the assigned agent" });
+  }
+  if (agentStatus === "banned") {
+    return res.status(403).json({ error: "Agent is banned" });
+  }
+  if (agentStatus !== "verified") {
+    return res.status(403).json({ error: "Agent is not verified" });
   }
   if (txn.confirmOtpExpires && new Date() > txn.confirmOtpExpires) {
     return res.status(400).json({ error: "OTP expired" });
@@ -276,6 +320,8 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
       status: true,
       requestOtp: true,
       userConfirmOtp: true,
+      userRating: true,
+      ratedAt: true,
       approvedAt: true,
       userConfirmedAt: true,
       agentConfirmedAt: true,
@@ -294,6 +340,8 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
       id: true,
       city: true,
       locationName: true,
+      ratingSum: true,
+      ratingCount: true,
       user: {
         select: {
           id: true,
@@ -318,6 +366,81 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
   }));
 
   return res.json({ items: enriched });
+}
+
+/**
+ * PATCH /transactions/requests/:id/rate
+ * User rates assigned agent once, only after confirmed completion.
+ */
+export async function rateAgentForTransaction(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+  const rating = Number(req.body?.rating);
+  const comment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: "Rating must be an integer between 1 and 5" });
+  }
+
+  const txn = await prisma.agentTransaction.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      status: true,
+      userId: true,
+      agentId: true,
+      userRating: true,
+    },
+  });
+
+  if (!txn) {
+    return res.status(404).json({ error: "Transaction not found" });
+  }
+  if (txn.userId !== req.user.id) {
+    return res.status(403).json({ error: "You are not allowed to rate this transaction" });
+  }
+  if (txn.status !== "confirmed") {
+    return res.status(400).json({ error: "You can rate only after completed transaction" });
+  }
+  if (txn.userRating !== null) {
+    return res.status(409).json({ error: "This transaction has already been rated" });
+  }
+
+  const now = new Date();
+  const updatedAgent = await prisma.$transaction(async (tx) => {
+    await tx.agentTransaction.update({
+      where: { id: txn.id },
+      data: {
+        userRating: rating,
+        userRatingComment: comment || null,
+        ratedAt: now,
+      },
+    });
+
+    return tx.agentProfile.update({
+      where: { id: txn.agentId },
+      data: {
+        ratingSum: { increment: rating },
+        ratingCount: { increment: 1 },
+      },
+      select: {
+        ratingSum: true,
+        ratingCount: true,
+      },
+    });
+  });
+
+  const averageRating =
+    updatedAgent.ratingCount > 0 ? updatedAgent.ratingSum / updatedAgent.ratingCount : null;
+
+  return res.json({
+    id: txn.id,
+    agentId: txn.agentId,
+    rating,
+    comment: comment || null,
+    ratedAt: now.toISOString(),
+    agentRatingAverage: averageRating,
+    agentRatingCount: updatedAgent.ratingCount,
+  });
 }
 
 /**

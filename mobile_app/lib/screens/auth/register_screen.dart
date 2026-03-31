@@ -17,7 +17,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _isRegistering = false;
   static const Color _primary = Color(0xFF5E4AE3);
-  static const Color _bg = Color(0xFFF7F2FF);
+  static const Color _secondary = Color(0xFF2F80ED);
+  static const Color _bg = Color(0xFFF5F7FF);
   static final RegExp _emailPattern = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$");
 
   @override
@@ -88,99 +89,156 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 92,
+                            height: 92,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.07),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: Image.asset(
+                                'Cashio/unnamed.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => const Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                  size: 46,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Register',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF131A2A),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Create your account',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _modernField(
+                          controller: _emailController,
+                          hint: 'Email Address',
+                          icon: Icons.mail_outline_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 10),
+                        _modernField(
+                          controller: _passwordController,
+                          hint: 'Password',
+                          icon: Icons.lock_outline_rounded,
+                          obscure: _obscurePassword,
+                          toggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                        const SizedBox(height: 10),
+                        _modernField(
+                          controller: _confirmController,
+                          hint: 'Confirm Password',
+                          icon: Icons.lock_reset_outlined,
+                          obscure: _obscurePassword,
+                          toggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                        const SizedBox(height: 14),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: const LinearGradient(
+                              colors: [_primary, _secondary],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _primary.withValues(alpha: 0.30),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isRegistering ? null : _handleRegister,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 56),
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            ),
+                            child: _isRegistering
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Text(
+                                    'REGISTER',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            );
+                          },
+                          child: const Text('Already have an account? Login'),
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
-                    child: const Icon(Icons.account_balance_wallet_outlined, size: 54, color: Colors.green),
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Create Account',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 22),
-                  _pillField(
-                    controller: _emailController,
-                    hint: 'Email',
-                    icon: Icons.mail_outline,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 14),
-                  _pillField(
-                    controller: _passwordController,
-                    hint: 'Password',
-                    icon: Icons.lock_outline,
-                    obscure: _obscurePassword,
-                    toggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                  const SizedBox(height: 14),
-                  _pillField(
-                    controller: _confirmController,
-                    hint: 'Confirm password',
-                    icon: Icons.lock_reset_outlined,
-                    obscure: _obscurePassword,
-                    toggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isRegistering ? null : _handleRegister,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 52),
-                        shape: const StadiumBorder(),
-                        elevation: 0,
-                      ),
-                      child: _isRegistering
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Register'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      );
-                    },
-                    child: const Text('Already have an account? Login'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _pillField({
+  Widget _modernField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
@@ -194,16 +252,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       obscureText: obscure,
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon),
+        prefixIcon: Icon(icon, color: const Color(0xFF5E6B85)),
         filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        fillColor: const Color(0xFFF0F3FA),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 1.2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: _primary, width: 1.4),
         ),
         suffixIcon: toggleObscure != null

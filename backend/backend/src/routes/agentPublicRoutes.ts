@@ -39,18 +39,36 @@ router.get("/nearby", async (req, res) => {
   if (cityQuery) {
     const agentsByCity = await prisma.agentProfile.findMany({
       where: {
+        status: "verified",
         isBanned: false,
         city: {
           contains: cityQuery,
           mode: "insensitive",
         },
       },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        isVerified: true,
+        isBanned: true,
+        available: true,
+        cashLimit: true,
+        locationName: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+        ratingSum: true,
+        ratingCount: true,
+        createdAt: true,
+        updatedAt: true,
         user: {
           select: {
             id: true,
             name: true,
             email: true,
+            phone: true,
+            address: true,
             profileImage: true,
           },
         },
@@ -65,14 +83,32 @@ router.get("/nearby", async (req, res) => {
   if (lat === undefined || lng === undefined) {
     const agents = await prisma.agentProfile.findMany({
       where: {
+        status: "verified",
         isBanned: false,
       },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        isVerified: true,
+        isBanned: true,
+        available: true,
+        cashLimit: true,
+        locationName: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+        ratingSum: true,
+        ratingCount: true,
+        createdAt: true,
+        updatedAt: true,
         user: {
           select: {
             id: true,
             name: true,
             email: true,
+            phone: true,
+            address: true,
             profileImage: true,
           },
         },
@@ -84,16 +120,34 @@ router.get("/nearby", async (req, res) => {
   // Grab geo-enabled agents from DB
   const agents = await prisma.agentProfile.findMany({
     where: {
+      status: "verified",
       isBanned: false,
       latitude: { not: null },
       longitude: { not: null },
     },
-    include: {
+    select: {
+      id: true,
+      userId: true,
+      status: true,
+      isVerified: true,
+      isBanned: true,
+      available: true,
+      cashLimit: true,
+      locationName: true,
+      city: true,
+      latitude: true,
+      longitude: true,
+      ratingSum: true,
+      ratingCount: true,
+      createdAt: true,
+      updatedAt: true,
       user: {
         select: {
           id: true,
           name: true,
           email: true,
+          phone: true,
+          address: true,
           profileImage: true,
         },
       },

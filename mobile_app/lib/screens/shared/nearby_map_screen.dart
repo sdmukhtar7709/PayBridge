@@ -56,8 +56,12 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xffF5F7FB),
       appBar: AppBar(
-        title: const Text('Nearby Banks & ATMs'),
+        backgroundColor: Colors.white,
+        elevation: 0.4,
+        title: const Text('Nearby Banks & ATMs', style: TextStyle(color: Colors.black87)),
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: Stack(
         children: [
@@ -86,11 +90,12 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black87,
-                elevation: 2,
+                elevation: 1,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  borderRadius: BorderRadius.circular(22),
+                  side: const BorderSide(color: Color(0xffE6EBF5)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
           ),
@@ -103,6 +108,7 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xffE6EBF5)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.12),
@@ -144,6 +150,7 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xffE6EBF5)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.14),

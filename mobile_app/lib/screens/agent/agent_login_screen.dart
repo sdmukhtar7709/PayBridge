@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/agent_service.dart';
+import '../../services/local_notification_service.dart';
 import '../auth/login_screen.dart';
 import 'agent_home_screen.dart';
 import 'agent_registration_screen.dart';
@@ -17,8 +18,9 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoggingIn = false;
-  static const Color _primary = Color(0xFF5E4AE3);
-  static const Color _bg = Color(0xFFF7F2FF);
+  static const Color _primary = Color(0xFF3B3A8F);
+  static const Color _secondary = Color(0xFF2B59C3);
+  static const Color _bg = Color(0xFFEEF1FF);
 
   @override
   void dispose() {
@@ -41,6 +43,9 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
     setState(() => _isLoggingIn = true);
     try {
       await AgentService.loginAgent(email: email, password: password);
+      LocalNotificationService.instance.resetForNewLogin(
+        clearAfter: const Duration(minutes: 2),
+      );
       if (!mounted) return;
       setState(() => _isLoggingIn = false);
       Navigator.pushReplacement(
@@ -61,99 +66,168 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 92,
+                            height: 92,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.admin_panel_settings_outlined, size: 48, color: _primary),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Agent Login',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF131A2A),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Manage transactions and earn securely',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDDE4FF),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text(
+                              'Verified Agents Only',
+                              style: TextStyle(
+                                color: Color(0xFF233B8A),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _modernInputField(
+                          controller: _emailController,
+                          hint: 'Email Address',
+                          icon: Icons.mail_outline_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 10),
+                        _modernInputField(
+                          controller: _passwordController,
+                          hint: 'Password',
+                          icon: Icons.lock_outline_rounded,
+                          obscure: _obscurePassword,
+                          toggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                        const SizedBox(height: 14),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: const LinearGradient(
+                              colors: [_primary, _secondary],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _primary.withValues(alpha: 0.30),
+                                blurRadius: 14,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isLoggingIn ? null : _handleAgentLogin,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 54),
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: _isLoggingIn
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Text(
+                                    'LOGIN',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '✔ Secure access for verified agents',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF3A496B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const AgentRegistrationScreen()),
+                            );
+                          },
+                          child: const Text('New agent? Create an account'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            );
+                          },
+                          child: const Text('User Login'),
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.verified_user_outlined, size: 54, color: Colors.green),
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Agent Login',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 22),
-                  _pillField(
-                    controller: _emailController,
-                    hint: 'Email',
-                    icon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 14),
-                  _pillField(
-                    controller: _passwordController,
-                    hint: 'Password',
-                    icon: Icons.lock_outline,
-                    obscure: _obscurePassword,
-                    toggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoggingIn ? null : _handleAgentLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 52),
-                        shape: const StadiumBorder(),
-                        elevation: 0,
-                      ),
-                      child: _isLoggingIn
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Login'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const AgentRegistrationScreen()),
-                      );
-                    },
-                    child: const Text('New agent? Create an account'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      );
-                    },
-                    child: const Text('User Login'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _pillField({
+  Widget _modernInputField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
@@ -167,16 +241,16 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
       obscureText: obscure,
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon),
+        prefixIcon: Icon(icon, color: const Color(0xFF5E6B85)),
         filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        fillColor: const Color(0xFFF0F3FA),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 1.2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: _primary, width: 1.4),
         ),
         suffixIcon: toggleObscure != null

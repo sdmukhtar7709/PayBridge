@@ -73,7 +73,14 @@ flutter run
 
 The admin panel is static for now.
 
-Open `admin/index.html` directly in the browser, or use VS Code Live Server.
+Recommended (served by backend):
+
+- `http://localhost:4000/admin-ui/AuthScreen/index.html`
+
+Alternative options:
+
+- Open `admin/index.html` directly in the browser
+- Use VS Code Live Server
 
 ## Backend scripts
 

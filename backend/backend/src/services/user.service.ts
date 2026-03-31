@@ -8,6 +8,7 @@ const userProfileSelect = {
   maritalStatus: true,
   age: true,
   address: true,
+  city: true,
   profileImage: true,
 } as const;
 
@@ -19,6 +20,7 @@ export type UserProfile = {
   maritalStatus: string | null;
   age: number | null;
   address: string | null;
+  city: string | null;
   profileImage: string | null;
 };
 
@@ -30,6 +32,7 @@ export type UpdateUserProfileInput = Partial<{
   maritalStatus: string;
   age: number;
   address: string;
+  city: string;
   profileImage: string;
 }>;
 
@@ -78,6 +81,7 @@ export async function updateUserProfile(
     maritalStatus?: string | null;
     age?: number | null;
     address?: string | null;
+    city?: string | null;
     profileImage?: string | null;
     name?: string;
   } = {};
@@ -88,6 +92,7 @@ export async function updateUserProfile(
   const gender = normalizeOptionalString(input.gender);
   const maritalStatus = normalizeOptionalString(input.maritalStatus);
   const address = normalizeOptionalString(input.address);
+  const city = normalizeOptionalString(input.city);
   const profileImage = normalizeOptionalString(input.profileImage);
 
   if (firstName !== undefined) updateData.firstName = firstName;
@@ -96,6 +101,7 @@ export async function updateUserProfile(
   if (gender !== undefined) updateData.gender = gender;
   if (maritalStatus !== undefined) updateData.maritalStatus = maritalStatus;
   if (address !== undefined) updateData.address = address;
+  if (city !== undefined) updateData.city = city;
   if (profileImage !== undefined) updateData.profileImage = profileImage;
 
   if (input.age !== undefined) {

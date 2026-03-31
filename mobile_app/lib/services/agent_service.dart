@@ -23,6 +23,8 @@ class AgentProfileData {
   final bool? isVerified;
   final bool? isBanned;
   final bool? available;
+  final int ratingSum;
+  final int ratingCount;
 
   AgentProfileData({
     required this.name,
@@ -43,7 +45,14 @@ class AgentProfileData {
     this.isVerified,
     this.isBanned,
     this.available,
+    this.ratingSum = 0,
+    this.ratingCount = 0,
   });
+
+  double? get averageRating {
+    if (ratingCount <= 0) return null;
+    return ratingSum / ratingCount;
+  }
 
   factory AgentProfileData.fromJson(Map<String, dynamic> json) {
     final user = (json['user'] is Map<String, dynamic>)
@@ -81,6 +90,8 @@ class AgentProfileData {
       isVerified: agent['isVerified'] as bool?,
       isBanned: agent['isBanned'] as bool?,
       available: agent['available'] as bool?,
+      ratingSum: _toInt(agent['ratingSum']) ?? 0,
+      ratingCount: _toInt(agent['ratingCount']) ?? 0,
     );
   }
 
@@ -141,6 +152,8 @@ class AgentProfileData {
         'isVerified': isVerified,
         'isBanned': isBanned,
         'available': available,
+        'ratingSum': ratingSum,
+        'ratingCount': ratingCount,
       }
     };
   }
@@ -265,6 +278,9 @@ class AgentTransactionHistoryItem {
   final String userEmail;
   final String userAddress;
   final String userCity;
+  final DateTime? approvedAt;
+  final DateTime? userConfirmedAt;
+  final DateTime? agentConfirmedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? completedAt;
@@ -280,6 +296,9 @@ class AgentTransactionHistoryItem {
     required this.userEmail,
     required this.userAddress,
     required this.userCity,
+    this.approvedAt,
+    this.userConfirmedAt,
+    this.agentConfirmedAt,
     this.createdAt,
     this.updatedAt,
     this.completedAt,
@@ -305,6 +324,9 @@ class AgentTransactionHistoryItem {
       userEmail: AgentProfileData._toStringValue(user['email']).trim(),
       userAddress: AgentProfileData._toStringValue(user['address']).trim(),
       userCity: AgentProfileData._toStringValue(user['city']).trim(),
+      approvedAt: DateTime.tryParse((json['approvedAt'] ?? '').toString()),
+      userConfirmedAt: DateTime.tryParse((json['userConfirmedAt'] ?? '').toString()),
+      agentConfirmedAt: DateTime.tryParse((json['agentConfirmedAt'] ?? '').toString()),
       createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()),
       updatedAt: DateTime.tryParse((json['updatedAt'] ?? '').toString()),
       completedAt: DateTime.tryParse((json['completedAt'] ?? '').toString()),

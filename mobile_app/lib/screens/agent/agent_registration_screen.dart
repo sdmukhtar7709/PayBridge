@@ -38,8 +38,9 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
   String _locationStatus = 'Pending';
   bool _isFetchingLocation = false;
   bool _isSubmitting = false;
-  static const Color _primary = Color(0xFF5E4AE3);
-  static const Color _bg = Color(0xFFF7F2FF);
+  static const Color _primary = Color(0xFF3B3A8F);
+  static const Color _secondary = Color(0xFF2B59C3);
+  static const Color _bg = Color(0xFFEEF1FF);
 
   @override
   void initState() {
@@ -234,7 +235,7 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: Column(
@@ -248,20 +249,45 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 14,
                           offset: const Offset(0, 6),
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.verified_user_outlined, size: 54, color: Colors.green),
+                    child: const Icon(Icons.admin_panel_settings_outlined, size: 52, color: _primary),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   const Text(
                     'Agent Registration',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage transactions and earn securely',
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDDE4FF),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'Verified Agents Only',
+                      style: TextStyle(
+                        color: Color(0xFF233B8A),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   _pillField(controller: _firstNameController, hint: 'First name', icon: Icons.person_outline),
                   const SizedBox(height: 12),
                   _pillField(controller: _middleNameController, hint: 'Middle name (optional)', icon: Icons.person_outline),
@@ -339,16 +365,31 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
                   const SizedBox(height: 12),
                   _currentLocationSection(),
                   const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: [_primary, _secondary],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primary.withValues(alpha: 0.30),
+                          blurRadius: 14,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
                     child: ElevatedButton(
                       onPressed: _isSubmitting ? null : _submitAgentRegistration,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
+                        minimumSize: const Size(double.infinity, 54),
+                        backgroundColor: Colors.transparent,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 52),
-                        shape: const StadiumBorder(),
-                        elevation: 0,
+                        disabledBackgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       child: _isSubmitting
                           ? const SizedBox(
@@ -359,7 +400,20 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Submit / Apply as Agent'),
+                          : const Text(
+                              'Submit / Apply as Agent',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '✔ Secure access for verified agents',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF3A496B),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -419,16 +473,16 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon),
+            prefixIcon: Icon(icon, color: const Color(0xFF5E6B85)),
             filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            fillColor: const Color(0xFFF0F3FA),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide(color: Colors.grey.shade300, width: 1.2),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(color: _primary, width: 1.4),
             ),
           ),
@@ -455,14 +509,14 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
       decoration: InputDecoration(
         hintText: label,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: const Color(0xFFF0F3FA),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 1.2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: _primary, width: 1.4),
         ),
       ),
@@ -497,14 +551,14 @@ class _AgentRegistrationScreenState extends State<AgentRegistrationScreen> {
         decoration: InputDecoration(
           hintText: 'Date of Birth',
           filled: true,
-          fillColor: Colors.white,
+          fillColor: const Color(0xFFF0F3FA),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(color: Colors.grey.shade300, width: 1.2),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.grey.shade300),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(color: _primary, width: 1.4),
           ),
         ),

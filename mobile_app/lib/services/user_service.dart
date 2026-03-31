@@ -14,6 +14,7 @@ class User {
   final String? maritalStatus;
   final int? age;
   final String? address;
+  final String? city;
   final String? profileImage;
 
   User({
@@ -24,6 +25,7 @@ class User {
     this.maritalStatus,
     this.age,
     this.address,
+    this.city,
     this.profileImage,
   });
 
@@ -36,6 +38,7 @@ class User {
       maritalStatus: json['maritalStatus'] as String?,
       age: json['age'] as int?,
       address: json['address'] as String?,
+      city: json['city'] as String?,
       profileImage: json['profileImage'] as String?,
     );
   }
@@ -49,6 +52,7 @@ class User {
       'maritalStatus': maritalStatus,
       'age': age,
       'address': address,
+      'city': city,
       'profileImage': profileImage,
     };
   }

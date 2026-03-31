@@ -21,4 +21,6 @@ export const env = {
   port: Number(process.env.PORT ?? "4000"),
   databaseUrl: requireEnv("DATABASE_URL"),
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret-change-me",
+  adminRegistrationCode:
+    process.env.ADMIN_REGISTRATION_CODE ?? "dev-admin-register-code",
 };
