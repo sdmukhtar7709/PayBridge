@@ -21,6 +21,9 @@ class ReceiptPersonData {
 class TransactionReceiptView extends StatelessWidget {
   final String status;
   final int amount;
+  final int agentCommission;
+  final int totalPaid;
+  final int agentReceived;
   final String dateTimeLabel;
   final ReceiptPersonData agentDetails;
   final ReceiptPersonData userDetails;
@@ -37,6 +40,9 @@ class TransactionReceiptView extends StatelessWidget {
     super.key,
     required this.status,
     required this.amount,
+    this.agentCommission = 0,
+    int? totalPaid,
+    int? agentReceived,
     required this.dateTimeLabel,
     required this.agentDetails,
     required this.userDetails,
@@ -48,7 +54,8 @@ class TransactionReceiptView extends StatelessWidget {
     this.otpVerified,
     this.confirmedByAgent,
     this.confirmedByUser,
-  });
+  })  : totalPaid = totalPaid ?? (amount + agentCommission),
+        agentReceived = agentReceived ?? (totalPaid ?? (amount + agentCommission));
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +125,29 @@ class TransactionReceiptView extends StatelessWidget {
                 children: [
                   _kv('Transaction ID', transactionId),
                   _kv('Request Type', _requestTypeLabel(requestType)),
-                  _kv('Amount', '₹$amount'),
+                  if (emphasizeAgentDetails) ...[
+                    _kv('Amount', '₹$amount'),
+                    _kv('Agent Fee', '₹$agentCommission'),
+                    _kv('Total Paid', '₹$totalPaid'),
+                  ] else ...[
+                    _kv('Transaction Amount', '₹$amount'),
+                    _kv('Your Earnings', '₹$agentCommission'),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Commission Earned',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xff64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _kv('Total Received', '₹$agentReceived'),
+                  ],
                   _kv('Status', formattedStatus),
                 ],
               ),

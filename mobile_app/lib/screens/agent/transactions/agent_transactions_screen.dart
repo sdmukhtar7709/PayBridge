@@ -211,11 +211,19 @@ class _AgentTransactionsScreenState extends State<AgentTransactionsScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            '₹${item.amount}',
+                                            '₹${item.agentReceived}',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w800,
                                               fontSize: 16,
                                               color: Color(0xff111827),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Earnings ₹${item.agentCommission}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xff475569),
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           const SizedBox(height: 6),

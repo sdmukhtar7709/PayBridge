@@ -12,6 +12,13 @@ document.addEventListener("DOMContentLoaded", () => {
       successRate: 0,
       transactionsPerDay: [],
     },
+    trendSeries: {
+      labels: [],
+      cash: [],
+      upi: [],
+      cashTotal: 0,
+      upiTotal: 0,
+    },
     reportLoaded: false,
     dashboardOverview: {
       ongoingRequests: 0,
@@ -55,6 +62,9 @@ document.addEventListener("DOMContentLoaded", () => {
     reportSuccessRate: document.getElementById("reportSuccessRate"),
     reportRefreshBtn: document.getElementById("reportRefreshBtn"),
     reportDayBars: document.getElementById("reportDayBars"),
+    transactionTrendChart: document.getElementById("transactionTrendChart"),
+    trendLegend: document.getElementById("trendLegend"),
+    trendRefreshBtn: document.getElementById("trendRefreshBtn"),
     dashboardHealthStatus: document.getElementById("dashboardHealthStatus"),
     dashboardActiveAgents: document.getElementById("dashboardActiveAgents"),
     dashboardOngoingRequests: document.getElementById("dashboardOngoingRequests"),
@@ -532,6 +542,215 @@ document.addEventListener("DOMContentLoaded", () => {
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(" ");
+  }
+
+  function formatDayLabelFromDate(dateValue) {
+    const date = new Date(`${dateValue}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return dateValue;
+    }
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function extractTypeCategory(typeValue) {
+    const text = String(typeValue || "").toLowerCase();
+    if (!text) {
+      return "cash";
+    }
+
+    if (text.includes("upi_to_cash")) {
+      return "cash";
+    }
+    if (text.includes("cash_to_upi")) {
+      return "upi";
+    }
+
+    if (text.includes("upi")) {
+      return "upi";
+    }
+    if (text.includes("cash")) {
+      return "cash";
+    }
+
+    return "cash";
+  }
+
+  function buildLast30DaySeries(items) {
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 29);
+
+    const labels = [];
+    const bucket = {};
+    for (let i = 0; i < 30; i += 1) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      const iso = day.toISOString().slice(0, 10);
+      labels.push(iso);
+      bucket[iso] = { cash: 0, upi: 0 };
+    }
+
+    (Array.isArray(items) ? items : []).forEach((raw) => {
+      const dateRaw = raw && (raw.date || raw.createdAt);
+      if (!dateRaw) {
+        return;
+      }
+
+      const date = new Date(dateRaw);
+      if (Number.isNaN(date.getTime())) {
+        return;
+      }
+
+      date.setHours(0, 0, 0, 0);
+      if (date < start || date > end) {
+        return;
+      }
+
+      const iso = date.toISOString().slice(0, 10);
+      if (!bucket[iso]) {
+        return;
+      }
+
+      const typeCategory = extractTypeCategory(raw && raw.type);
+      if (typeCategory === "upi") {
+        bucket[iso].upi += 1;
+      } else {
+        bucket[iso].cash += 1;
+      }
+    });
+
+    const cash = labels.map((label) => bucket[label].cash);
+    const upi = labels.map((label) => bucket[label].upi);
+    return {
+      labels,
+      cash,
+      upi,
+      cashTotal: cash.reduce((sum, value) => sum + value, 0),
+      upiTotal: upi.reduce((sum, value) => sum + value, 0),
+    };
+  }
+
+  function createPolylinePoints(values, chartRect, maxValue) {
+    if (!values.length) {
+      return "";
+    }
+    const { left, top, width, height } = chartRect;
+    const denominator = values.length > 1 ? values.length - 1 : 1;
+
+    return values
+      .map((value, index) => {
+        const x = left + (index / denominator) * width;
+        const y = top + height - (Number(value || 0) / maxValue) * height;
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+  }
+
+  function renderTrendLegend(series) {
+    if (!el.trendLegend) {
+      return;
+    }
+
+    el.trendLegend.innerHTML = `
+      <div class="legend-item">
+        <span class="legend-dot cash"></span>
+        <strong>Cash</strong>
+        <span>${series.cashTotal}</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot upi"></span>
+        <strong>UPI</strong>
+        <span>${series.upiTotal}</span>
+      </div>
+    `;
+  }
+
+  function renderTransactionTrendChart() {
+    if (!el.transactionTrendChart) {
+      return;
+    }
+
+    const series = state.trendSeries;
+    const labels = Array.isArray(series.labels) ? series.labels : [];
+    if (!labels.length) {
+      el.transactionTrendChart.innerHTML = "";
+      renderTrendLegend({ cashTotal: 0, upiTotal: 0 });
+      return;
+    }
+
+    const cashValues = Array.isArray(series.cash) ? series.cash : [];
+    const upiValues = Array.isArray(series.upi) ? series.upi : [];
+    const maxValue = Math.max(1, ...cashValues, ...upiValues);
+
+    const chartRect = { left: 48, top: 16, width: 692, height: 192 };
+    const ticks = 4;
+
+    const gridLines = Array.from({ length: ticks + 1 }, (_, index) => {
+      const ratio = index / ticks;
+      const y = chartRect.top + chartRect.height * ratio;
+      const value = Math.round(maxValue * (1 - ratio));
+      return `
+        <line x1="${chartRect.left}" y1="${y.toFixed(2)}" x2="${(chartRect.left + chartRect.width).toFixed(2)}" y2="${y.toFixed(2)}" class="trend-grid-line" />
+        <text x="8" y="${(y + 4).toFixed(2)}" class="trend-axis-text">${value}</text>
+      `;
+    }).join("");
+
+    const axisBottom = chartRect.top + chartRect.height;
+    const cashPoints = createPolylinePoints(cashValues, chartRect, maxValue);
+    const upiPoints = createPolylinePoints(upiValues, chartRect, maxValue);
+
+    const xLabels = labels
+      .map((rawLabel, index) => {
+        if (index % 5 !== 0 && index !== labels.length - 1) {
+          return "";
+        }
+        const denominator = labels.length > 1 ? labels.length - 1 : 1;
+        const x = chartRect.left + (index / denominator) * chartRect.width;
+        return `<text x="${x.toFixed(2)}" y="${(axisBottom + 24).toFixed(2)}" text-anchor="middle" class="trend-axis-text">${formatDayLabelFromDate(rawLabel)}</text>`;
+      })
+      .join("");
+
+    el.transactionTrendChart.innerHTML = `
+      <line x1="${chartRect.left}" y1="${axisBottom}" x2="${chartRect.left + chartRect.width}" y2="${axisBottom}" class="trend-axis-line" />
+      <line x1="${chartRect.left}" y1="${chartRect.top}" x2="${chartRect.left}" y2="${axisBottom}" class="trend-axis-line" />
+      ${gridLines}
+      <polyline points="${cashPoints}" class="trend-line-cash" />
+      <polyline points="${upiPoints}" class="trend-line-upi" />
+      ${xLabels}
+    `;
+
+    renderTrendLegend(series);
+  }
+
+  async function fetchTransactionTrendData() {
+    if (!state.token) {
+      return;
+    }
+
+    if (el.trendRefreshBtn) {
+      el.trendRefreshBtn.disabled = true;
+    }
+
+    try {
+      const result = await apiFetch("/admin/transactions?limit=1000", { method: "GET" });
+      const txRaw = Array.isArray(result)
+        ? result
+        : Array.isArray(result && result.items)
+          ? result.items
+          : [];
+
+      state.trendSeries = buildLast30DaySeries(txRaw);
+      renderTransactionTrendChart();
+    } catch (error) {
+      state.trendSeries = buildLast30DaySeries([]);
+      renderTransactionTrendChart();
+      showToast(`Failed to load trend graph: ${error.message}`, "error");
+    } finally {
+      if (el.trendRefreshBtn) {
+        el.trendRefreshBtn.disabled = false;
+      }
+    }
   }
 
   function matchesTransactionFilters(item) {
@@ -1014,8 +1233,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       state.transactions = txRaw.map(mapTransaction);
       state.transactionsLoaded = true;
+      state.trendSeries = buildLast30DaySeries(txRaw);
       applyTransactionFilters();
       renderReports();
+      renderTransactionTrendChart();
       showToast("Transactions loaded successfully.", "ok");
     } catch (error) {
       showToast(`Failed to load transactions: ${error.message}`, "error");
@@ -1299,6 +1520,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderAgentsTable();
     renderTransactionsTable();
     renderReports();
+    renderTransactionTrendChart();
     renderDashboardOverview();
 
     setActivePage(resolvePage(window.location.hash.replace("#", "")), false);
@@ -1341,6 +1563,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (el.reportRefreshBtn) {
       el.reportRefreshBtn.addEventListener("click", fetchReportTransactions);
     }
+    if (el.trendRefreshBtn) {
+      el.trendRefreshBtn.addEventListener("click", fetchTransactionTrendData);
+    }
     el.navItems.forEach((item) => {
       item.addEventListener("click", () => {
         setActivePage(item.dataset.page, true);
@@ -1354,6 +1579,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (savedToken) {
       fetchAgents();
       fetchDashboardOverview();
+      fetchTransactionTrendData();
     }
   }
 

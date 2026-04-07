@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  engineType = "binary"
   seed     = "ts-node --transpile-only prisma/seed.ts"
 }
 
@@ -143,6 +144,9 @@ model AgentTransaction {
 
   status String // "pending" | "confirmed" | "cancelled"
   amount Int
+  agentCommission Int @default(0)
+  totalPaid Int
+  agentReceived Int
 
   userId  String // requester (customer)
   agentId String // agentProfile.id

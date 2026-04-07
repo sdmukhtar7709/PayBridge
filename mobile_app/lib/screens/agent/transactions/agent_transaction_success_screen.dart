@@ -7,12 +7,16 @@ import 'agent_transactions_screen.dart';
 class AgentTransactionSuccessScreen extends StatefulWidget {
   final String userName;
   final int amount;
+  final int agentCommission;
+  final int totalReceived;
   final DateTime? transactionDateTime;
 
   const AgentTransactionSuccessScreen({
     super.key,
     required this.userName,
     required this.amount,
+    required this.agentCommission,
+    required this.totalReceived,
     this.transactionDateTime,
   });
 
@@ -64,74 +68,113 @@ class _AgentTransactionSuccessScreenState extends State<AgentTransactionSuccessS
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xffDDE3EE)),
-                ),
-                child: Column(
-                  children: [
-                    _animatedSuccessIcon,
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Transaction Successful',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xff0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '₹${widget.amount}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xff111827),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _formatDateTime(txTime),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xff64748B),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _sectionCard(
-                title: 'Other Party',
-                child: _kv('User', widget.userName.trim().isEmpty ? '-' : widget.userName),
-              ),
-              const SizedBox(height: 12),
-              _sectionCard(
-                title: 'Security',
-                child: const Row(
-                  children: [
-                    Icon(Icons.verified_user_rounded, color: Color(0xff15803D)),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'OTP verified successfully',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xff166534),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xffDDE3EE)),
+                        ),
+                        child: Column(
+                          children: [
+                            _animatedSuccessIcon,
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Transaction Successful',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xff0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              '₹${widget.totalReceived}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 34,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xff111827),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Commission Earned',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xff64748B),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₹${widget.agentCommission}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Color(0xff0F172A),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _formatDateTime(txTime),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xff64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      _sectionCard(
+                        title: 'Transaction Summary',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _kv('Transaction Amount', '₹${widget.amount}'),
+                            _kv('Your Earnings', '₹${widget.agentCommission}'),
+                            _kv('Total Received', '₹${widget.totalReceived}'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _sectionCard(
+                        title: 'Other Party',
+                        child: _kv('User', widget.userName.trim().isEmpty ? '-' : widget.userName),
+                      ),
+                      const SizedBox(height: 12),
+                      _sectionCard(
+                        title: 'Security',
+                        child: const Row(
+                          children: [
+                            Icon(Icons.verified_user_rounded, color: Color(0xff15803D)),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'OTP verified successfully',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xff166534),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 12),
               OutlinedButton(
                 onPressed: () {
                   Navigator.of(context).pushReplacement(

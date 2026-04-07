@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -38,20 +37,22 @@ class UserHomeScreen extends StatefulWidget {
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
   static final String _apiBaseUrl = ApiConfig.baseUrl;
+  static const double _nearbyRadiusKm = 10.0;
 
   int _currentIndex = 0; // Track selected tab locally.
-  bool _useCurrentLocation = false;
-  String _cityLabel = 'Wagholi, Pune';
+  bool _useCurrentLocation = true;
+  String _cityLabel = 'Set location';
   String _profileFirstName = 'User';
   File? _photoFile;
   Uint8List? _profilePhotoBytes;
   bool _isFetchingLocation = false;
-  LatLng _mapCenter = const LatLng(18.5912, 73.7389);
+  LatLng _mapCenter = const LatLng(20.5937, 78.9629);
   GoogleMapController? _mapController;
   final Set<Marker> _mapMarkers = {};
   List<_HomeAgentSummary> _nearbyAgents = const [];
   bool _isLoadingAgents = false;
   String? _agentsError;
+  String? _agentsSectionCityLabel;
   final Map<String, String> _requestStatusByAgentId = {};
   final ProfilePhotoService _photoService = ProfilePhotoService();
   final UserService _userService = UserService();
@@ -78,6 +79,21 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           initialCenter: _mapCenter,
           markers: _mapMarkers,
           autoLoadNearby: true,
+          nearbyRadiusKm: _nearbyRadiusKm,
+          agents: _nearbyAgents
+              .where((agent) => agent.latitude != null && agent.longitude != null)
+              .map(
+                (agent) => NearbyMapAgent(
+                  id: agent.id,
+                  name: agent.name,
+                  city: agent.city,
+                  shopName: agent.locationName,
+                  latitude: agent.latitude!,
+                  longitude: agent.longitude!,
+                  distanceKm: agent.distanceKm,
+                ),
+              )
+              .toList(),
         ),
       ),
     );
@@ -92,7 +108,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
               city: city.isEmpty ? 'your area' : city,
               latitude: _mapCenter.latitude,
               longitude: _mapCenter.longitude,
-              radiusKm: 5.0,
+              radiusKm: _nearbyRadiusKm,
               transactionType: 'UPI → Cash',
               amount: '1000',
             ),
@@ -141,13 +157,34 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       if (items is! List) return;
 
       if (!_hasInitializedRequestStatusSnapshot) {
+        final initialStatusByAgent = <String, String>{};
         for (final raw in items.whereType<Map<String, dynamic>>()) {
           final id = (raw['id'] ?? '').toString().trim();
           if (id.isEmpty) continue;
           final status = (raw['status'] ?? '').toString().trim().toLowerCase();
           if (status.isEmpty) continue;
           _knownRequestStatusById[id] = status;
+
+          final agent = raw['agent'] is Map<String, dynamic>
+              ? raw['agent'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          final agentId = (raw['agentId'] ?? '').toString().trim().isNotEmpty
+              ? (raw['agentId'] ?? '').toString().trim()
+              : (agent['id'] ?? '').toString().trim();
+          if (agentId.isNotEmpty) {
+            initialStatusByAgent[agentId] = status;
+          }
         }
+
+        if (!mapEquals(initialStatusByAgent, _requestStatusByAgentId)) {
+          _requestStatusByAgentId
+            ..clear()
+            ..addAll(initialStatusByAgent);
+          if (mounted) {
+            setState(() {});
+          }
+        }
+
         _hasInitializedRequestStatusSnapshot = true;
         return;
       }
@@ -320,23 +357,33 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     try {
       final profile = await _userService.getProfile();
       if (!mounted) return;
+      final nextCity = profile.city?.trim() ?? '';
+      final shouldUpdateCity = nextCity.isNotEmpty && nextCity != _cityLabel;
       setState(() {
         _profileFirstName = _extractFirstName(profile.displayName);
         _profilePhotoBytes = _decodeProfileImage(profile.profileImage);
-        if (profile.city != null && profile.city!.trim().isNotEmpty) {
-          _cityLabel = profile.city!.trim();
+        if (nextCity.isNotEmpty) {
+          _cityLabel = nextCity;
         }
       });
+      if (shouldUpdateCity) {
+        _fetchNearbyAgents(silent: true);
+      }
     } catch (_) {
       final cached = await _userService.getCachedProfile();
       if (!mounted || cached == null) return;
+      final nextCity = cached.city?.trim() ?? '';
+      final shouldUpdateCity = nextCity.isNotEmpty && nextCity != _cityLabel;
       setState(() {
         _profileFirstName = _extractFirstName(cached.displayName);
         _profilePhotoBytes = _decodeProfileImage(cached.profileImage);
-        if (cached.city != null && cached.city!.trim().isNotEmpty) {
-          _cityLabel = cached.city!.trim();
+        if (nextCity.isNotEmpty) {
+          _cityLabel = nextCity;
         }
       });
+      if (shouldUpdateCity) {
+        _fetchNearbyAgents(silent: true);
+      }
     }
   }
 
@@ -360,58 +407,121 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     }
 
     try {
-      final queryParams = <String, String>{};
       final city = _cityLabel.split(',').first.trim();
-      if (city.isNotEmpty) {
-        queryParams['city'] = city;
-      }
-      if (_mapCenter.latitude != 0 && _mapCenter.longitude != 0) {
+
+      final queryParams = <String, String>{'radius': _nearbyRadiusKm.toString()};
+      if (_useCurrentLocation && _mapCenter.latitude != 0 && _mapCenter.longitude != 0) {
         queryParams['lat'] = _mapCenter.latitude.toString();
         queryParams['lng'] = _mapCenter.longitude.toString();
-        queryParams['radius'] = '5.0';
+      } else if (city.isNotEmpty && city.toLowerCase() != 'set location') {
+        // Manual fallback when current location is not enabled.
+        queryParams['city'] = city;
       }
 
-      final uri = Uri.parse('$_apiBaseUrl/agents/nearby').replace(
-        queryParameters: queryParams.isNotEmpty ? queryParams : null,
-      );
-      final response = await http.get(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('Server error ${response.statusCode}');
+      final agents = await _getNearbyAgents(queryParams);
+      final approvedAgents = await _getApprovedRequestAgents();
+      final mergedById = <String, _HomeAgentSummary>{
+        for (final agent in agents) agent.id: agent,
+      };
+      for (final approved in approvedAgents) {
+        mergedById[approved.id] = approved;
       }
-
-      final decoded = jsonDecode(response.body);
-      final list = decoded is List
-          ? decoded
-          : (decoded['agents'] as List? ?? []);
-
-      final agents = list
-          .whereType<Map<String, dynamic>>()
-          .map(_HomeAgentSummary.fromJson)
-          .where((agent) =>
-              !agent.isBanned && agent.isVerified && agent.available)
-          .toList();
+      final mergedAgents = mergedById.values.toList();
 
       if (!mounted) return;
       setState(() {
-        _nearbyAgents = agents;
+        _nearbyAgents = mergedAgents;
         _agentsError = null;
+        _agentsSectionCityLabel = city;
+        _mapMarkers
+          ..clear()
+          ..addAll(_buildAgentMarkers(mergedAgents));
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _agentsError = e.toString().replaceFirst('Exception: ', '');
         _nearbyAgents = const [];
+        _agentsSectionCityLabel = null;
+        _mapMarkers.clear();
       });
     } finally {
       if (mounted && !silent) setState(() => _isLoadingAgents = false);
     }
   }
 
+  Future<List<_HomeAgentSummary>> _getApprovedRequestAgents() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) return const [];
+
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/transactions/requests?status=approved&limit=100'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return const [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      final items = decoded is Map<String, dynamic> ? decoded['items'] as List? ?? [] : const [];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map((item) => item['agent'])
+          .whereType<Map<String, dynamic>>()
+          .map(_HomeAgentSummary.fromJson)
+          .where((agent) => agent.id.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Set<Marker> _buildAgentMarkers(List<_HomeAgentSummary> agents) {
+    return agents
+        .where((agent) => agent.latitude != null && agent.longitude != null)
+        .map(
+          (agent) => Marker(
+            markerId: MarkerId('home_agent_${agent.id}'),
+            position: LatLng(agent.latitude!, agent.longitude!),
+            infoWindow: InfoWindow(
+              title: agent.name,
+              snippet: agent.locationName.isNotEmpty ? agent.locationName : agent.city,
+            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          ),
+        )
+        .toSet();
+  }
+
+  Future<List<_HomeAgentSummary>> _getNearbyAgents(Map<String, String> queryParams) async {
+    final uri = Uri.parse('$_apiBaseUrl/agents/nearby').replace(
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
+    final response = await http.get(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Server error ${response.statusCode}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    final list = decoded is List ? decoded : (decoded['agents'] as List? ?? []);
+
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(_HomeAgentSummary.fromJson)
+        .where((agent) => !agent.isBanned && agent.isVerified && agent.available)
+        .toList();
+  }
+
   double _distanceKmTo(_HomeAgentSummary agent) {
+    if (agent.distanceKm != null) return agent.distanceKm!;
     if (agent.latitude == null || agent.longitude == null) return 0;
     const radius = 6371.0;
     final dLat = _deg2rad(agent.latitude! - _mapCenter.latitude);
@@ -542,6 +652,7 @@ class _HomeAgentSummary {
   final bool isBanned;
   final int ratingSum;
   final int ratingCount;
+  final double? distanceKm;
   final double? latitude;
   final double? longitude;
   final Uint8List? profilePhotoBytes;
@@ -556,6 +667,7 @@ class _HomeAgentSummary {
     required this.isBanned,
     required this.ratingSum,
     required this.ratingCount,
+    this.distanceKm,
     this.latitude,
     this.longitude,
     this.profilePhotoBytes,
@@ -578,6 +690,7 @@ class _HomeAgentSummary {
     final isBanned = (json['isBanned'] as bool?) ?? false;
     final ratingSum = int.tryParse((json['ratingSum'] ?? '0').toString()) ?? 0;
     final ratingCount = int.tryParse((json['ratingCount'] ?? '0').toString()) ?? 0;
+    final distanceKm = _toDouble(json['distanceKm']);
     final latitude = _toDouble(json['latitude']);
     final longitude = _toDouble(json['longitude']);
 
@@ -603,6 +716,7 @@ class _HomeAgentSummary {
       isBanned: isBanned,
       ratingSum: ratingSum,
       ratingCount: ratingCount,
+      distanceKm: distanceKm,
       latitude: latitude,
       longitude: longitude,
       profilePhotoBytes: photoBytes,

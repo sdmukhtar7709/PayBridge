@@ -402,12 +402,14 @@ extension _UserHomeWidgets on _UserHomeScreenState {
           border: Border.all(color: const Color(0xFFE6ECFF)),
         ),
         child: const Text(
-          'No verified agents nearby yet.',
+          'No agents found within 10 km.',
           style: TextStyle(color: Colors.black54),
         ),
       );
     }
 
+    const sectionTitle = 'Nearby Trusted Agents';
+    final sectionCity = (_agentsSectionCityLabel ?? _cityLabel).trim();
     final visibleAgents = _nearbyAgents.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,11 +417,14 @@ extension _UserHomeWidgets on _UserHomeScreenState {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Nearby Trusted Agents',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            Text(
+              sectionTitle,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
-            Text(_cityLabel, style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+            Text(
+              sectionCity,
+              style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         const SizedBox(height: 10),

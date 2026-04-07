@@ -517,11 +517,19 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            '₹${item.amount}',
+                                            '₹${item.totalPaid}',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w800,
                                               fontSize: 16,
                                               color: Color(0xff111827),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Agent Fee ₹${item.agentCommission}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xff475569),
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           const SizedBox(height: 6),
@@ -643,6 +651,9 @@ class _UserRequestItem {
   final String status;
   final String requestType;
   final int amount;
+  final int agentCommission;
+  final int totalPaid;
+  final int agentReceived;
   final String agentName;
   final String agentPhone;
   final String agentEmail;
@@ -666,6 +677,9 @@ class _UserRequestItem {
     required this.status,
     required this.requestType,
     required this.amount,
+    required this.agentCommission,
+    required this.totalPaid,
+    required this.agentReceived,
     required this.agentName,
     required this.agentPhone,
     required this.agentEmail,
@@ -703,6 +717,9 @@ class _UserRequestItem {
       status: status,
       requestType: requestType ?? this.requestType,
       amount: amount,
+      agentCommission: agentCommission,
+      totalPaid: totalPaid,
+      agentReceived: agentReceived,
       agentName: agentName,
       agentPhone: agentPhone,
       agentEmail: agentEmail,
@@ -793,6 +810,12 @@ class _UserRequestItem {
       status: (json['status'] ?? '').toString().toLowerCase(),
       requestType: (json['requestType'] ?? '').toString(),
       amount: int.tryParse((json['amount'] ?? '0').toString()) ?? 0,
+        agentCommission: int.tryParse((json['agentCommission'] ?? '0').toString()) ?? 0,
+        totalPaid: int.tryParse((json['totalPaid'] ?? json['amount'] ?? '0').toString()) ??
+          (int.tryParse((json['amount'] ?? '0').toString()) ?? 0),
+        agentReceived:
+          int.tryParse((json['agentReceived'] ?? json['totalPaid'] ?? json['amount'] ?? '0').toString()) ??
+            (int.tryParse((json['totalPaid'] ?? json['amount'] ?? '0').toString()) ?? 0),
       agentName: (agentUser['name'] ?? 'Agent').toString(),
       agentPhone: (agentUser['phone'] ?? '').toString(),
       agentEmail: (agentUser['email'] ?? '').toString(),
@@ -817,6 +840,9 @@ class _UserRequestItem {
       id: '',
       agentId: '',
       amount: 0,
+      agentCommission: 0,
+      totalPaid: 0,
+      agentReceived: 0,
       status: '',
       requestType: '',
       agentName: '',

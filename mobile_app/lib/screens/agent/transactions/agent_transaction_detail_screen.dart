@@ -51,6 +51,9 @@ class _AgentTransactionDetailScreenState extends State<AgentTransactionDetailScr
     return TransactionReceiptView(
       status: item.status,
       amount: item.amount,
+      agentCommission: item.agentCommission,
+      totalPaid: item.totalPaid,
+      agentReceived: item.agentReceived,
       dateTimeLabel: _formatDateTime(ts),
       emphasizeAgentDetails: false,
       agentDetails: ReceiptPersonData(

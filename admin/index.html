@@ -93,6 +93,21 @@
           </section>
 
           <section class="card panel-card">
+            <div class="panel-head report-head">
+              <div>
+                <h2>Cash vs UPI Trend (30 Days)</h2>
+                <p>Line graph of the last 1 month transaction types.</p>
+              </div>
+              <button id="trendRefreshBtn" class="btn btn-ghost" type="button">Refresh Trend</button>
+            </div>
+
+            <div class="trend-chart-wrap" id="trendChartWrap" aria-label="Cash and UPI trend chart">
+              <svg id="transactionTrendChart" class="trend-chart" viewBox="0 0 760 260" role="img" aria-label="Cash and UPI transaction line graph"></svg>
+              <div id="trendLegend" class="trend-legend"></div>
+            </div>
+          </section>
+
+          <section class="card panel-card">
             <div class="panel-head">
               <div>
                 <h2>System Status</h2>

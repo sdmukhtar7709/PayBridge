@@ -10,7 +10,9 @@ import '../home/user_home_screen.dart';
 import 'my_requests_screen.dart';
 
 class TransactionSuccessScreen extends StatefulWidget {
-  final String amount;
+  final int amount;
+  final int agentCommission;
+  final int totalPaid;
   final String agentName;
   final String agentPhone;
   final String city;
@@ -21,6 +23,8 @@ class TransactionSuccessScreen extends StatefulWidget {
   const TransactionSuccessScreen({
     super.key,
     required this.amount,
+    required this.agentCommission,
+    required this.totalPaid,
     required this.agentName,
     required this.agentPhone,
     required this.city,
@@ -118,12 +122,22 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen>
                               ),
                               const SizedBox(height: 14),
                               Text(
-                                '₹${widget.amount}',
+                                '₹${widget.totalPaid} Paid',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 34,
                                   fontWeight: FontWeight.w900,
                                   color: Color(0xff111827),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Includes ₹${widget.agentCommission} agent fee',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xff475569),
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -135,6 +149,18 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen>
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _sectionCard(
+                          title: 'Payment Summary',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _kv('Amount', '₹${widget.amount}'),
+                              _kv('Agent Fee', '₹${widget.agentCommission}'),
+                              _kv('Total Paid', '₹${widget.totalPaid}'),
                             ],
                           ),
                         ),

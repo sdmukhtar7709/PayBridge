@@ -173,7 +173,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen>
       }
 
       for (final item in confirmed) {
-        totalAmount += item.amount;
+        totalAmount += item.agentReceived;
       }
 
       if (!mounted) return;
@@ -226,6 +226,8 @@ class _AgentHomeScreenState extends State<AgentHomeScreen>
             builder: (_) => AgentTransactionSuccessScreen(
               userName: item.userName,
               amount: item.amount,
+              agentCommission: item.agentCommission,
+              totalReceived: item.agentReceived,
             ),
           ),
         );
@@ -522,6 +524,8 @@ class _AgentHomeScreenState extends State<AgentHomeScreen>
                   builder: (_) => AgentTransactionSuccessScreen(
                     userName: item.name,
                     amount: item.amount,
+                    agentCommission: item.agentCommission,
+                    totalReceived: item.agentReceived,
                   ),
                 ),
               );
@@ -1492,12 +1496,25 @@ class _AgentHomeScreenState extends State<AgentHomeScreen>
                                   ),
                                 ),
                               ),
-                              Text(
-                                '₹${item.amount}',
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '₹${item.agentReceived}',
+                                    style: const TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Fee ₹${item.agentCommission}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xff475569),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -2175,7 +2192,7 @@ class _AgentHomeScreenState extends State<AgentHomeScreen>
                                                 shape: RoundedRectangleBorder(
                                                   borderRadius: BorderRadius.circular(16),
                                                 ),
-                                                child: Padding(
+                                                child: SingleChildScrollView(
                                                   padding: const EdgeInsets.all(16),
                                                   child: Column(
                                                     mainAxisSize: MainAxisSize.min,
@@ -2252,6 +2269,10 @@ class _AgentHomeScreenState extends State<AgentHomeScreen>
                                                   AgentTransactionSuccessScreen(
                                                 userName: request.name,
                                                 amount: request.amount,
+                                                agentCommission:
+                                                    request.agentCommission,
+                                                totalReceived:
+                                                    request.agentReceived,
                                               ),
                                             ),
                                           );

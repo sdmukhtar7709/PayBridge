@@ -51,7 +51,7 @@ class _MyAppState extends State<MyApp> {
             city: contextArgs?.city.isNotEmpty == true ? contextArgs!.city : 'your area',
             latitude: contextArgs?.latitude,
             longitude: contextArgs?.longitude,
-            radiusKm: contextArgs?.radiusKm ?? 5.0,
+            radiusKm: contextArgs?.radiusKm ?? 10.0,
             transactionType: contextArgs?.transactionType ?? 'UPI → Cash',
             amount: contextArgs?.amount ?? '1000',
           ),

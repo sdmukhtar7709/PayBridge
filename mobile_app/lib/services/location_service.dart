@@ -35,9 +35,26 @@ class LocationService {
       throw Exception('Location permission permanently denied. Please enable it from settings.');
     }
 
-    final position = await Geolocator.getCurrentPosition(
+    Position position = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
+
+    // Retry once with stronger accuracy request if GPS fix is still coarse.
+    if (position.accuracy > 60) {
+      try {
+        final refined = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+          ),
+          timeLimit: const Duration(seconds: 8),
+        );
+        if (refined.accuracy < position.accuracy) {
+          position = refined;
+        }
+      } catch (_) {
+        // Keep the initial position when refinement times out.
+      }
+    }
 
     final places = await placemarkFromCoordinates(position.latitude, position.longitude);
     final place = places.isNotEmpty ? places.first : null;

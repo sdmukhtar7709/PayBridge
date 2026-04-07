@@ -362,6 +362,87 @@ textarea {
   gap: 12px;
 }
 
+.trend-chart-wrap {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.trend-chart {
+  width: 100%;
+  min-height: 260px;
+  border: 1px solid #e1eaf8;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+}
+
+.trend-axis-line {
+  stroke: #c7d6ef;
+  stroke-width: 1.2;
+}
+
+.trend-grid-line {
+  stroke: #e6eefb;
+  stroke-width: 1;
+}
+
+.trend-axis-text {
+  fill: #627491;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.trend-line-cash,
+.trend-line-upi {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.trend-line-cash {
+  stroke: #0ea55f;
+}
+
+.trend-line-upi {
+  stroke: #0f6adf;
+}
+
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f3f8ff;
+  border: 1px solid #d9e6fa;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.legend-item strong {
+  color: var(--ink);
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.legend-dot.cash {
+  background: #0ea55f;
+}
+
+.legend-dot.upi {
+  background: #0f6adf;
+}
+
 .day-bars {
   display: grid;
   gap: 10px;
@@ -784,6 +865,10 @@ tbody tr.active-row {
 
   .day-bar-row {
     grid-template-columns: 72px 1fr 32px;
+  }
+
+  .trend-chart {
+    min-height: 220px;
   }
 
   .nav-menu {

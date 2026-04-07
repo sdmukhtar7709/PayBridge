@@ -35,7 +35,7 @@ class AvailableAgentsContext {
       city: (json['city'] ?? '').toString(),
       latitude: _toDouble(json['latitude']),
       longitude: _toDouble(json['longitude']),
-      radiusKm: _toDouble(json['radiusKm']) ?? 5.0,
+      radiusKm: _toDouble(json['radiusKm']) ?? 10.0,
       transactionType: (json['transactionType'] ?? 'UPI → Cash').toString(),
       amount: (json['amount'] ?? '1000').toString(),
     );

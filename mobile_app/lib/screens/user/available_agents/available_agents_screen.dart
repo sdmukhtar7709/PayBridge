@@ -3,16 +3,18 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/api_config.dart';
+import '../../../services/agent_fee_calculator.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/agent_rating_live_store.dart';
 import '../../../services/available_agents_context_store.dart';
 import '../../../services/local_notification_service.dart';
 import '../../../services/location_service.dart';
 import '../../../services/request_type_store.dart';
+import 'agent_directions_screen.dart';
 import '../transactions/transaction_success_screen.dart';
 
 part 'available_agents_models.dart';
@@ -155,6 +157,12 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
             .toString()
             .trim()
             .toLowerCase();
+        final latestAmount = _toInt(body['amount']) ?? state.amount;
+        final latestAgentCommission =
+          _toInt(body['agentCommission']) ?? state.agentCommission;
+        final latestTotalPaid = _toInt(body['totalPaid']) ?? state.totalPaid;
+        final latestAgentReceived =
+          _toInt(body['agentReceived']) ?? state.agentReceived;
         final requestOtp = (body['requestOtp'] ?? '').toString().trim();
         final userConfirmOtp = (body['userConfirmOtp'] ?? '').toString().trim();
         final approvedAt = DateTime.tryParse(
@@ -172,6 +180,10 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
         if (latestStatus == 'pending') {
           _requestByAgentId[entry.key] = state.copyWith(
             status: 'pending',
+            amount: latestAmount,
+            agentCommission: latestAgentCommission,
+            totalPaid: latestTotalPaid,
+            agentReceived: latestAgentReceived,
             requestOtp: requestOtp,
             userConfirmOtp: userConfirmOtp,
             approvedAt: approvedAt,
@@ -209,6 +221,10 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
 
           _requestByAgentId[entry.key] = state.copyWith(
             status: 'approved',
+            amount: latestAmount,
+            agentCommission: latestAgentCommission,
+            totalPaid: latestTotalPaid,
+            agentReceived: latestAgentReceived,
             requestOtp: requestOtp,
             userConfirmOtp: userConfirmOtp,
             approvedAt: approvedAt,
@@ -280,7 +296,9 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => TransactionSuccessScreen(
-                    amount: widget.amount,
+                    amount: latestAmount,
+                    agentCommission: latestAgentCommission,
+                    totalPaid: latestTotalPaid,
                     agentName: (agentUser['name'] ?? 'Agent').toString(),
                     agentPhone: (agentUser['phone'] ?? '').toString(),
                     city: (agentBody['city'] ?? '').toString(),
@@ -570,6 +588,12 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
       return;
     }
 
+    final feeBreakdown = AgentFeeCalculator.fromAmount(amount);
+    final shouldProceed = await _showPaymentConfirmDialog(feeBreakdown);
+    if (shouldProceed != true) {
+      return;
+    }
+
     setState(() => _requestingAgentId = agent.id);
     try {
       final response = await http.post(
@@ -584,6 +608,12 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
       final body = _decodeBody(response);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final transactionId = (body['id'] ?? '').toString();
+        final amountValue = _toInt(body['amount']) ?? feeBreakdown.amount;
+        final agentCommission =
+            _toInt(body['agentCommission']) ?? feeBreakdown.agentFee;
+        final totalPaid = _toInt(body['totalPaid']) ?? feeBreakdown.totalPayable;
+        final agentReceived =
+            _toInt(body['agentReceived']) ?? feeBreakdown.agentReceives;
         await RequestTypeStore.saveType(
           transactionId: transactionId,
           requestType: widget.transactionType,
@@ -593,6 +623,10 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
           _requestByAgentId[agent.id] = _RequestState(
             transactionId: transactionId,
             status: 'pending',
+            amount: amountValue,
+            agentCommission: agentCommission,
+            totalPaid: totalPaid,
+            agentReceived: agentReceived,
           );
         });
         _ensurePolling();
@@ -616,43 +650,40 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
   }
 
   Future<void> _openDirections(_AgentSummary agent) async {
+    if (agent.latitude == null || agent.longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Agent location is not available for directions')),
+      );
+      return;
+    }
+
     AppLocation? userLocation;
     try {
       userLocation = await _locationService.getCurrentLocation();
     } catch (_) {
-      // If location is unavailable, fallback to destination-only directions.
+      // Fallback below uses last known query location.
     }
 
-    final destinationQuery = [
-      if (agent.address.isNotEmpty) agent.address,
-      if (agent.city.isNotEmpty) agent.city,
-      if (agent.locationName.isNotEmpty) agent.locationName,
-    ].join(', ');
-
-    final destinationLat = agent.latitude;
-    final destinationLng = agent.longitude;
-    final originParam = userLocation != null
-        ? '${userLocation.latitude},${userLocation.longitude}'
-        : null;
-
-    final Uri uri = (destinationLat != null && destinationLng != null)
-        ? Uri.https('www.google.com', '/maps/dir/', {
-            'api': '1',
-            'destination': '$destinationLat,$destinationLng',
-            if (originParam != null) 'origin': originParam,
-          })
-        : Uri.https('www.google.com', '/maps/search/', {
-            'api': '1',
-            'query': destinationQuery.isEmpty ? widget.city : destinationQuery,
-            if (originParam != null) 'origin': originParam,
-          });
-
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) {
+    final originLat = userLocation?.latitude ?? widget.latitude;
+    final originLng = userLocation?.longitude ?? widget.longitude;
+    if (originLat == null || originLng == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to open directions right now')),
+        const SnackBar(content: Text('Unable to detect your location for route')),
       );
+      return;
     }
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AgentDirectionsScreen(
+          agentName: agent.name,
+          origin: LatLng(originLat, originLng),
+          destination: LatLng(agent.latitude!, agent.longitude!),
+        ),
+      ),
+    );
   }
 
   Future<void> _showConfirmAgentOtpDialog(
@@ -687,7 +718,7 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -806,7 +837,9 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => TransactionSuccessScreen(
-                                        amount: widget.amount,
+                                        amount: state.amount,
+                                        agentCommission: state.agentCommission,
+                                        totalPaid: state.totalPaid,
                                         agentName:
                                             matchedAgent?.name ?? 'Agent',
                                         agentPhone: matchedAgent?.phone ?? '',
@@ -908,6 +941,61 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
       }
     }
     return fallback;
+  }
+
+  int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value.toString());
+  }
+
+  Future<bool?> _showPaymentConfirmDialog(AgentFeeBreakdown breakdown) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('You will pay'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _paymentLine('Amount', breakdown.amount),
+              const SizedBox(height: 8),
+              _paymentLine('Agent Fee', breakdown.agentFee),
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              _paymentLine('Total', breakdown.totalPayable, emphasize: true),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _paymentLine(String label, int value, {bool emphasize = false}) {
+    final style = TextStyle(
+      fontSize: emphasize ? 16 : 14,
+      fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+      color: emphasize ? const Color(0xff111827) : const Color(0xff334155),
+    );
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: style)),
+        Text('₹$value', style: style),
+      ],
+    );
   }
 
   Future<void> _showSimpleDialog({
@@ -1043,12 +1131,12 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
 
     try {
       final queryParams = <String, String>{};
-      if (widget.city.trim().isNotEmpty) {
-        queryParams['city'] = widget.city.trim();
-      }
       if (widget.latitude != null && widget.longitude != null) {
         queryParams['lat'] = widget.latitude!.toString();
         queryParams['lng'] = widget.longitude!.toString();
+        queryParams['radius'] = widget.radiusKm.toString();
+      } else if (widget.city.trim().isNotEmpty) {
+        queryParams['city'] = widget.city.trim();
         queryParams['radius'] = widget.radiusKm.toString();
       }
 
@@ -1158,6 +1246,11 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
         restored[agentId] = _RequestState(
           transactionId: transactionId,
           status: status,
+          amount: _toInt(raw['amount']) ?? 0,
+          agentCommission: _toInt(raw['agentCommission']) ?? 0,
+          totalPaid: _toInt(raw['totalPaid']) ?? (_toInt(raw['amount']) ?? 0),
+          agentReceived: _toInt(raw['agentReceived']) ??
+              (_toInt(raw['totalPaid']) ?? (_toInt(raw['amount']) ?? 0)),
           requestOtp: (raw['requestOtp'] ?? '').toString().trim(),
           userConfirmOtp: (raw['userConfirmOtp'] ?? '').toString().trim(),
           userConfirmedAt: DateTime.tryParse(
@@ -1270,7 +1363,7 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
               Icon(Icons.search_off, size: 56, color: Colors.grey.shade400),
               const SizedBox(height: 14),
               Text(
-                'No agents found in ${widget.city}',
+                'No agents found within ${widget.radiusKm.toStringAsFixed(0)} km',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
@@ -1278,10 +1371,12 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Try increasing the distance range\nor check back later.',
+              Text(
+                widget.city.trim().isEmpty || widget.city == 'your area'
+                    ? 'Try refreshing or check back later.'
+                    : 'Try current location or check back later.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black45),
+                style: const TextStyle(color: Colors.black45),
               ),
             ],
           ),
@@ -1328,7 +1423,6 @@ class _AvailableAgentsScreenState extends State<AvailableAgentsScreen> {
               .firstWhere((a) => a != null, orElse: () => null)
         : null;
     final approvedState = approvedEntry?.value;
-    final isOtpVerified = approvedState?.approvedAt != null;
     final firstOtp = approvedState?.requestOtp ?? '';
     final otpToShare = (approvedState?.userConfirmOtp ?? '').isNotEmpty
       ? approvedState!.userConfirmOtp

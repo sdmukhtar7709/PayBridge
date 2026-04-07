@@ -3,7 +3,29 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/api_config.dart';
+import '../../services/location_service.dart';
+
+class NearbyMapAgent {
+  final String id;
+  final String name;
+  final String city;
+  final String shopName;
+  final double latitude;
+  final double longitude;
+  final double? distanceKm;
+
+  const NearbyMapAgent({
+    required this.id,
+    required this.name,
+    required this.city,
+    required this.shopName,
+    required this.latitude,
+    required this.longitude,
+    this.distanceKm,
+  });
+}
 
 /// Full-screen map with satellite toggle, nearby ATMs/banks, and place search.
 /// Shared between UserHomeScreen and AgentHomeScreen.
@@ -11,12 +33,16 @@ class NearbyMapScreen extends StatefulWidget {
   final LatLng initialCenter;
   final Set<Marker> markers;
   final bool autoLoadNearby;
+  final List<NearbyMapAgent> agents;
+  final double nearbyRadiusKm;
 
   const NearbyMapScreen({
     super.key,
     required this.initialCenter,
     required this.markers,
     this.autoLoadNearby = false,
+    this.agents = const [],
+    this.nearbyRadiusKm = 10,
   });
 
   @override
@@ -25,18 +51,31 @@ class NearbyMapScreen extends StatefulWidget {
 
 class _NearbyMapScreenState extends State<NearbyMapScreen> {
   static final String _apiBaseUrl = ApiConfig.baseUrl;
+  static const Color _userMarkerColor = Color(0xFF1E88E5);
+  static const Color _atmMarkerColor = Color(0xFFEA580C);
+  static const Color _bankMarkerColor = Color(0xFF16A34A);
+  static const Color _agentMarkerColor = Color(0xFF7C3AED);
 
   GoogleMapController? _controller;
   final TextEditingController _searchController = TextEditingController();
+  final LocationService _locationService = LocationService();
   bool _isSatelliteSelected = false;
   bool _isLoadingNearby = false;
   bool _isSearchingPlace = false;
+  late LatLng _nearbySearchCenter;
   late Set<Marker> _mapMarkers;
+  late List<NearbyMapAgent> _agentMarkersData;
+  Set<Circle> _mapCircles = const {};
+
+  int get _nearbyRadiusMeters => (widget.nearbyRadiusKm * 1000).round();
 
   @override
   void initState() {
     super.initState();
+    _nearbySearchCenter = widget.initialCenter;
     _mapMarkers = Set<Marker>.from(widget.markers);
+    _agentMarkersData = List<NearbyMapAgent>.from(widget.agents);
+    _addAgentMarkers(_mapMarkers);
     if (widget.autoLoadNearby) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -75,11 +114,12 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
             myLocationButtonEnabled: true,
             zoomControlsEnabled: false,
             markers: _mapMarkers,
+            circles: _mapCircles,
             onMapCreated: (controller) {
               _controller = controller;
+              _syncToCurrentLocationOnOpen();
             },
           ),
-          // Nearby ATMs & Banks button
           Positioned(
             top: 14,
             left: 14,
@@ -99,7 +139,6 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
               ),
             ),
           ),
-          // Search bar
           Positioned(
             top: 68,
             left: 14,
@@ -177,6 +216,58 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
               ),
             ),
           ),
+          Positioned(
+            right: 14,
+            bottom: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xffE6EBF5)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MarkerLegendDot(color: _userMarkerColor, label: 'Your Location'),
+                  SizedBox(height: 4),
+                  _MarkerLegendDot(color: _atmMarkerColor, label: 'ATM'),
+                  SizedBox(height: 4),
+                  _MarkerLegendDot(color: _bankMarkerColor, label: 'Bank'),
+                  SizedBox(height: 4),
+                  _MarkerLegendDot(color: _agentMarkerColor, label: 'Agent'),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 14,
+            bottom: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'Center ${_fmt(_nearbySearchCenter.latitude)}, ${_fmt(_nearbySearchCenter.longitude)}\n'
+                'Agents ${_agentMarkersData.length}  Markers ${_mapMarkers.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -212,8 +303,10 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
   Future<void> _loadNearbyBanksAndAtms() async {
     setState(() => _isLoadingNearby = true);
     try {
+      final center = await _resolveNearbySearchCenter();
+      final nearbyAgents = await _fetchNearbyAgents(center);
       final uri = Uri.parse(
-        '$_apiBaseUrl/maps/nearby-banks-atms?lat=${widget.initialCenter.latitude}&lng=${widget.initialCenter.longitude}&radius=3000',
+        '$_apiBaseUrl/maps/nearby-banks-atms?lat=${center.latitude}&lng=${center.longitude}&radius=$_nearbyRadiusMeters',
       );
 
       final response =
@@ -255,6 +348,16 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
 
       final nextMarkers = <Marker>{};
 
+      nextMarkers.add(
+        Marker(
+          markerId: const MarkerId('user_exact_location'),
+          position: center,
+          infoWindow: const InfoWindow(title: 'Your exact location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          zIndex: 4,
+        ),
+      );
+
       for (final item in results) {
         if (item is! Map<String, dynamic>) continue;
         final geometry = item['geometry'];
@@ -280,16 +383,33 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
             position: LatLng(lat.toDouble(), lng.toDouble()),
             infoWindow: InfoWindow(title: name, snippet: vicinity),
             icon: BitmapDescriptor.defaultMarkerWithHue(
-              isAtm
-                  ? BitmapDescriptor.hueOrange
-                  : BitmapDescriptor.hueRed,
+              isAtm ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueGreen,
             ),
+            zIndex: isAtm ? 2 : 3,
           ),
         );
       }
 
       if (!mounted) return;
-      setState(() => _mapMarkers = nextMarkers);
+      setState(() {
+        _agentMarkersData = nearbyAgents;
+        _mapMarkers = nextMarkers;
+        _addAgentMarkers(_mapMarkers);
+        _mapCircles = {
+          Circle(
+            circleId: const CircleId('nearby_radius'),
+            center: center,
+            radius: _nearbyRadiusMeters.toDouble(),
+            fillColor: const Color(0x332563EB),
+            strokeColor: const Color(0xFF2563EB),
+            strokeWidth: 2,
+          ),
+        };
+      });
+
+      await _controller?.animateCamera(
+        CameraUpdate.newLatLngZoom(center, 11),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -300,6 +420,180 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
     } finally {
       if (mounted) setState(() => _isLoadingNearby = false);
     }
+  }
+
+  Future<void> _syncToCurrentLocationOnOpen() async {
+    final center = await _resolveNearbySearchCenter();
+    if (!mounted) return;
+
+    setState(() {
+      _mapMarkers.removeWhere(
+        (marker) => marker.markerId.value == 'user_exact_location',
+      );
+      _mapMarkers.add(
+        Marker(
+          markerId: const MarkerId('user_exact_location'),
+          position: center,
+          infoWindow: const InfoWindow(title: 'Your exact location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          zIndex: 4,
+        ),
+      );
+    });
+
+    await _controller?.animateCamera(
+      CameraUpdate.newLatLngZoom(center, 15),
+    );
+  }
+
+  Future<List<NearbyMapAgent>> _fetchNearbyAgents(LatLng center) async {
+    final uri = Uri.parse('$_apiBaseUrl/agents/nearby').replace(
+      queryParameters: {
+        'lat': center.latitude.toString(),
+        'lng': center.longitude.toString(),
+        'radius': widget.nearbyRadiusKm.toString(),
+        'includeAll': 'true',
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      return _agentMarkersData;
+    }
+
+    final decoded = jsonDecode(response.body);
+    final list = decoded is List
+        ? decoded
+        : (decoded is Map<String, dynamic>
+            ? (decoded['agents'] as List<dynamic>? ?? const [])
+            : const <dynamic>[]);
+
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map((json) {
+          final user = json['user'] is Map<String, dynamic>
+              ? json['user'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          final lat = _toDouble(json['latitude']);
+          final lng = _toDouble(json['longitude']);
+          if (lat == null || lng == null) return null;
+          return NearbyMapAgent(
+            id: (json['id'] ?? '').toString(),
+            name: (user['name'] ?? json['name'] ?? 'Agent').toString(),
+            city: (json['city'] ?? '').toString(),
+            shopName: (json['locationName'] ?? '').toString(),
+            latitude: lat,
+            longitude: lng,
+            distanceKm: _toDouble(json['distanceKm']),
+          );
+        })
+        .whereType<NearbyMapAgent>()
+        .toList();
+  }
+
+  void _addAgentMarkers(Set<Marker> target) {
+    for (final agent in _agentMarkersData) {
+      target.add(
+        Marker(
+          markerId: MarkerId('agent_${agent.id}'),
+          position: LatLng(agent.latitude, agent.longitude),
+          infoWindow: InfoWindow(
+            title: agent.name,
+            snippet: agent.shopName.isNotEmpty ? agent.shopName : agent.city,
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          zIndex: 5,
+          onTap: () => _showAgentDetailsSheet(agent),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAgentDetailsSheet(NearbyMapAgent agent) async {
+    if (!mounted) return;
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  agent.name,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  agent.shopName.isNotEmpty ? agent.shopName : agent.city,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                if (agent.distanceKm != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Distance: ${agent.distanceKm!.toStringAsFixed(1)} km',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openDirectionsForAgent(agent),
+                    icon: const Icon(Icons.directions),
+                    label: const Text('Open in Google Maps'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openDirectionsForAgent(NearbyMapAgent agent) async {
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': '${agent.latitude},${agent.longitude}',
+      'origin': '${_nearbySearchCenter.latitude},${_nearbySearchCenter.longitude}',
+    });
+
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open Google Maps directions')),
+      );
+    }
+  }
+
+  Future<LatLng> _resolveNearbySearchCenter() async {
+    try {
+      final location = await _locationService.getCurrentLocation();
+      final center = LatLng(location.latitude, location.longitude);
+      _nearbySearchCenter = center;
+      return center;
+    } catch (_) {
+      // Fall back to the passed center when GPS is unavailable.
+      return _nearbySearchCenter;
+    }
+  }
+
+  String _fmt(double value) => value.toStringAsFixed(5);
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   Future<void> _searchSpecificPlace() async {
@@ -378,8 +672,7 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
             markerId: const MarkerId('searched_place'),
             position: target,
             infoWindow: InfoWindow(title: title, snippet: subtitle),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueViolet),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
           ),
         );
       });
@@ -396,5 +689,37 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
     } finally {
       if (mounted) setState(() => _isSearchingPlace = false);
     }
+  }
+}
+
+class _MarkerLegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _MarkerLegendDot({
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
   }
 }

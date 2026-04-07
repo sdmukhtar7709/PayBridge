@@ -3,6 +3,10 @@ part of 'available_agents_screen.dart';
 class _RequestState {
   final String transactionId;
   final String status;
+  final int amount;
+  final int agentCommission;
+  final int totalPaid;
+  final int agentReceived;
   final String requestOtp;
   final String userConfirmOtp;
   final DateTime? approvedAt;
@@ -14,6 +18,10 @@ class _RequestState {
   const _RequestState({
     required this.transactionId,
     required this.status,
+    required this.amount,
+    required this.agentCommission,
+    required this.totalPaid,
+    required this.agentReceived,
     this.requestOtp = '',
     this.userConfirmOtp = '',
     this.approvedAt,
@@ -26,6 +34,10 @@ class _RequestState {
   _RequestState copyWith({
     String? transactionId,
     String? status,
+    int? amount,
+    int? agentCommission,
+    int? totalPaid,
+    int? agentReceived,
     String? requestOtp,
     String? userConfirmOtp,
     DateTime? approvedAt,
@@ -37,6 +49,10 @@ class _RequestState {
     return _RequestState(
       transactionId: transactionId ?? this.transactionId,
       status: status ?? this.status,
+      amount: amount ?? this.amount,
+      agentCommission: agentCommission ?? this.agentCommission,
+      totalPaid: totalPaid ?? this.totalPaid,
+      agentReceived: agentReceived ?? this.agentReceived,
       requestOtp: requestOtp ?? this.requestOtp,
       userConfirmOtp: userConfirmOtp ?? this.userConfirmOtp,
       approvedAt: approvedAt ?? this.approvedAt,
@@ -63,6 +79,7 @@ class _AgentSummary {
   final bool isBanned;
   final int ratingSum;
   final int ratingCount;
+  final double? distanceKm;
   final Uint8List? profilePhotoBytes;
 
   const _AgentSummary({
@@ -80,6 +97,7 @@ class _AgentSummary {
     required this.isBanned,
     required this.ratingSum,
     required this.ratingCount,
+    this.distanceKm,
     this.profilePhotoBytes,
   });
 
@@ -91,6 +109,7 @@ class _AgentSummary {
   _AgentSummary copyWith({
     int? ratingSum,
     int? ratingCount,
+    double? distanceKm,
   }) {
     return _AgentSummary(
       id: id,
@@ -107,6 +126,7 @@ class _AgentSummary {
       isBanned: isBanned,
       ratingSum: ratingSum ?? this.ratingSum,
       ratingCount: ratingCount ?? this.ratingCount,
+      distanceKm: distanceKm,
       profilePhotoBytes: profilePhotoBytes,
     );
   }
@@ -132,6 +152,7 @@ class _AgentSummary {
     final isBanned = (json['isBanned'] as bool?) ?? false;
     final ratingSum = int.tryParse((json['ratingSum'] ?? '0').toString()) ?? 0;
     final ratingCount = int.tryParse((json['ratingCount'] ?? '0').toString()) ?? 0;
+    final distanceKm = _toDouble(json['distanceKm']);
 
     // Profile photo
     final rawPhoto = _asString(user['profileImage']).isNotEmpty
@@ -163,6 +184,7 @@ class _AgentSummary {
       isBanned: isBanned,
       ratingSum: ratingSum,
       ratingCount: ratingCount,
+      distanceKm: distanceKm,
       profilePhotoBytes: photoBytes,
     );
   }

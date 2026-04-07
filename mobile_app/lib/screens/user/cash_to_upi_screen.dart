@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/agent_fee_calculator.dart';
 import '../../services/location_service.dart';
 import '../../services/user_service.dart';
 import 'available_agents/available_agents_screen.dart';
@@ -93,6 +94,7 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
                     TextField(
                       controller: _amountController,
                       keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() {}),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 30,
@@ -141,6 +143,41 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
                         _quickAmountButton('2000'),
                       ],
                     ),
+                    if (_amountBreakdown.amount > 0) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffF8FAFF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xffDCE6FF)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _amountRow('Amount', _amountBreakdown.amount),
+                            const SizedBox(height: 8),
+                            _amountRow('Agent Fee', _amountBreakdown.agentFee),
+                            const Divider(height: 18),
+                            _amountRow(
+                              'Total Payable',
+                              _amountBreakdown.totalPayable,
+                              emphasize: true,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Agent fee applied for service',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xff64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -224,7 +261,7 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
                     city: city.isEmpty ? 'your area' : city,
                     latitude: latitude,
                     longitude: longitude,
-                    radiusKm: 5.0,
+                    radiusKm: 10.0,
                     transactionType: 'Cash → UPI',
                     amount: amount,
                   );
@@ -282,10 +319,29 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
       label: Text('₹$amount'),
       onPressed: () {
         _amountController.text = amount;
+        setState(() {});
       },
       backgroundColor: const Color(0xFFF2F5FF),
       side: const BorderSide(color: Color(0xFFD4DEFF)),
       labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+    );
+  }
+
+  AgentFeeBreakdown get _amountBreakdown {
+    return AgentFeeCalculator.fromRawAmount(_amountController.text);
+  }
+
+  Widget _amountRow(String label, int value, {bool emphasize = false}) {
+    final style = TextStyle(
+      fontSize: emphasize ? 17 : 14,
+      fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+      color: emphasize ? const Color(0xff0F172A) : const Color(0xff334155),
+    );
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: style)),
+        Text('₹$value', style: style),
+      ],
     );
   }
 

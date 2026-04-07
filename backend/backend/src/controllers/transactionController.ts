@@ -43,6 +43,16 @@ declare global {
 export async function createTransaction(req: Request, res: Response) {
   const { agentId, amount } = req.body;
   const userId = req.user.id; // <-- Assumes requireAuth middleware sets req.user
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount) || !Number.isInteger(numericAmount)) {
+    return res.status(400).json({ error: "Amount must be a valid integer" });
+  }
+
+  const normalizedAmount = Math.max(0, numericAmount);
+  const agentCommission = normalizedAmount >= 1000 ? Math.round(normalizedAmount * 0.005) : 0;
+  const totalPaid = normalizedAmount + agentCommission;
+  const agentReceived = totalPaid;
 
   // Ensure target agent profile exists and is not banned.
   // Accept either AgentProfile.id (preferred) or legacy userId input.
@@ -77,7 +87,10 @@ export async function createTransaction(req: Request, res: Response) {
   const txn = await prisma.agentTransaction.create({
     data: {
       status: "pending",
-      amount,
+      amount: normalizedAmount,
+      agentCommission,
+      totalPaid,
+      agentReceived,
       userId,
       agentId: agent.id,
       requestOtp: "",
@@ -88,6 +101,10 @@ export async function createTransaction(req: Request, res: Response) {
   res.json({
     id: txn.id,
     status: txn.status,
+    amount: txn.amount,
+    agentCommission: txn.agentCommission,
+    totalPaid: txn.totalPaid,
+    agentReceived: txn.agentReceived,
     otp: "PENDING" // OTP is generated after agent approval
   });
 }
@@ -221,6 +238,9 @@ export async function getTransactionStatus(req: AuthRequest, res: Response) {
       id: true,
       status: true,
       amount: true,
+      agentCommission: true,
+      totalPaid: true,
+      agentReceived: true,
       requestOtp: true,
       userConfirmOtp: true,
       approvedAt: true,
@@ -326,6 +346,9 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
       userConfirmedAt: true,
       agentConfirmedAt: true,
       amount: true,
+      agentCommission: true,
+      totalPaid: true,
+      agentReceived: true,
       createdAt: true,
       updatedAt: true,
       agentId: true,
@@ -340,6 +363,8 @@ export async function listUserRequests(req: AuthRequest, res: Response) {
       id: true,
       city: true,
       locationName: true,
+      latitude: true,
+      longitude: true,
       ratingSum: true,
       ratingCount: true,
       user: {

@@ -150,6 +150,14 @@ class _AgentCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 12, color: Colors.blueAccent),
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      agent.distanceKm != null
+                          ? '${agent.distanceKm!.toStringAsFixed(1)} km • Available now'
+                          : 'Available now',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),

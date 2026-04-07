@@ -182,6 +182,9 @@ class AgentLiveRequest {
   final String phone;
   final String address;
   final int amount;
+  final int agentCommission;
+  final int totalPaid;
+  final int agentReceived;
   final String status;
   final String type;
   final String agentConfirmOtp;
@@ -198,6 +201,9 @@ class AgentLiveRequest {
     required this.phone,
     required this.address,
     required this.amount,
+    this.agentCommission = 0,
+    this.totalPaid = 0,
+    this.agentReceived = 0,
     required this.status,
     this.type = 'Cash to UPI',
     this.agentConfirmOtp = '',
@@ -228,6 +234,11 @@ class AgentLiveRequest {
       phone: phone,
       address: address,
       amount: AgentProfileData._toInt(json['amount']) ?? 0,
+        agentCommission: AgentProfileData._toInt(json['agentCommission']) ?? 0,
+        totalPaid:
+          AgentProfileData._toInt(json['totalPaid']) ?? (AgentProfileData._toInt(json['amount']) ?? 0),
+        agentReceived: AgentProfileData._toInt(json['agentReceived']) ??
+          (AgentProfileData._toInt(json['totalPaid']) ?? (AgentProfileData._toInt(json['amount']) ?? 0)),
       status: AgentProfileData._toStringValue(json['status']).trim().isNotEmpty
           ? AgentProfileData._toStringValue(json['status']).trim()
           : 'pending',
@@ -257,6 +268,9 @@ class AgentLiveRequest {
       phone: phone,
       address: address,
       amount: amount,
+      agentCommission: agentCommission,
+      totalPaid: totalPaid,
+      agentReceived: agentReceived,
       status: status ?? this.status,
       type: type,
       agentConfirmOtp: agentConfirmOtp ?? this.agentConfirmOtp,
@@ -271,6 +285,9 @@ class AgentTransactionHistoryItem {
   final String id;
   final String status;
   final int amount;
+  final int agentCommission;
+  final int totalPaid;
+  final int agentReceived;
   final String requestType;
   final String userId;
   final String userName;
@@ -289,6 +306,9 @@ class AgentTransactionHistoryItem {
     required this.id,
     required this.status,
     required this.amount,
+    required this.agentCommission,
+    required this.totalPaid,
+    required this.agentReceived,
     required this.requestType,
     required this.userId,
     required this.userName,
@@ -313,6 +333,11 @@ class AgentTransactionHistoryItem {
       id: (json['id'] ?? '').toString(),
       status: AgentProfileData._toStringValue(json['status']).trim().toLowerCase(),
       amount: AgentProfileData._toInt(json['amount']) ?? 0,
+      agentCommission: AgentProfileData._toInt(json['agentCommission']) ?? 0,
+      totalPaid:
+          AgentProfileData._toInt(json['totalPaid']) ?? (AgentProfileData._toInt(json['amount']) ?? 0),
+      agentReceived: AgentProfileData._toInt(json['agentReceived']) ??
+          (AgentProfileData._toInt(json['totalPaid']) ?? (AgentProfileData._toInt(json['amount']) ?? 0)),
         requestType: AgentProfileData._toStringValue(json['requestType']).trim().isEmpty
           ? 'Cash to UPI'
           : AgentProfileData._toStringValue(json['requestType']).trim(),
