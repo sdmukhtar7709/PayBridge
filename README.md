@@ -1,67 +1,117 @@
-# Cash IO (WIP)
+# Cash IO
 
-Cash IO is an in-progress full-stack project for cash ↔ digital transaction workflows.
+Cash IO is a full-stack project for cash and digital transaction workflows.
 
-This repository currently contains:
-- `mobile_app/` — Flutter app (user + agent flows)
-- `backend/backend/` — Node.js + TypeScript API (Express + Prisma + PostgreSQL)
-- `admin/` — static admin dashboard UI (HTML/CSS/JS)
+This repository includes:
+- `backend/backend` - Node.js + TypeScript API (Express + Prisma + PostgreSQL)
+- `mobile_app` - Flutter mobile app
+- `admin` - Admin web UI (HTML/CSS/JS), served by backend
 
-## Status
+## Project status
 
-🚧 **Work in Progress**
+Work in progress. Core flows are implemented and can run locally for development.
 
-This project is not complete yet. Core modules are being built and integrated.
+## Tech stack
 
-## Current stack
+- Backend: Node.js, TypeScript, Express, Prisma
+- Database: PostgreSQL (Docker)
+- Mobile: Flutter (Dart)
+- Testing: Vitest + Supertest (backend)
 
-- Flutter (Dart)
-- Node.js + Express + TypeScript
-- Prisma ORM
-- PostgreSQL (Docker)
-- Vitest + Supertest (backend tests)
+## Run in 5 simple steps (recommended)
 
-## Quick start
+Use this if you want the fastest path to run the project locally.
 
-### 1) Backend API
+1. Install prerequisites
+2. Start PostgreSQL with Docker
+3. Configure backend `.env`
+4. Run backend
+5. Open admin UI and/or run mobile app
 
-From project root:
+Details are below.
+
+## 1) Prerequisites
+
+Install these tools first:
+- Node.js 20+
+- npm 10+
+- Docker Desktop
+- Flutter SDK (for mobile only)
+- Git
+
+Check versions:
+
+```bash
+node -v
+npm -v
+docker --version
+flutter --version
+```
+
+## 2) Start database (PostgreSQL)
+
+From repository root:
 
 ```bash
 cd backend/backend
-npm install
-```
-
-Create `.env` (or copy from `.env.example` if present) and set at minimum:
-
-```env
-DATABASE_URL=postgresql://cash_user:cash_password@localhost:5432/cash_db
-JWT_SECRET=super-secret-dev
-PORT=4000
-```
-
-Start PostgreSQL with Docker:
-
-```bash
 docker-compose up -d
 ```
 
-Run migrations and start API:
+This starts Postgres with:
+- host: `localhost`
+- port: `5432`
+- user: `cash_user`
+- password: `cash_password`
+- database: `cash_db`
+
+## 3) Configure backend environment
+
+In `backend/backend`, create a file named `.env` with this content:
+
+```env
+DATABASE_URL=postgresql://cash_user:cash_password@localhost:5432/cash_db
+JWT_SECRET=dev-secret-change-me
+PORT=4000
+NODE_ENV=development
+ADMIN_REGISTRATION_CODE=dev-admin-register-code
+ALLOWED_ORIGINS=
+```
+
+Optional variables (only if needed):
+
+```env
+GOOGLE_MAPS_API_KEY=
+LOG_LEVEL=info
+```
+
+## 4) Run backend API
+
+From `backend/backend`:
 
 ```bash
+npm install
 npx prisma migrate dev
 npm run dev
 ```
 
-Health check:
+Backend runs at:
+- `http://localhost:4000`
 
-```bash
-curl http://localhost:4000/health
-```
+Quick checks:
+- Health: `http://localhost:4000/health`
+- API docs UI: `http://localhost:4000/docs`
+- OpenAPI JSON: `http://localhost:4000/docs/openapi.json`
 
-### 2) Mobile app (Flutter)
+## 5) Run frontend parts
 
-From project root:
+### Admin UI (easiest)
+
+With backend running, open:
+- `http://localhost:4000/admin-ui/AuthScreen/index.html`
+
+### Mobile app (Flutter)
+
+From repository root:
 
 ```bash
 cd mobile_app
@@ -69,47 +119,93 @@ flutter pub get
 flutter run
 ```
 
-### 3) Admin UI
+## All useful commands
 
-The admin panel is static for now.
+### Backend (`backend/backend`)
 
-Recommended (served by backend):
+```bash
+npm run dev         # start dev server
+npm run build       # compile TypeScript
+npm run start       # run compiled server
+npm run check       # TypeScript type-check
+npm test            # run tests
+npm run test:watch  # watch tests
+npm run studio      # open Prisma Studio
+```
 
-- `http://localhost:4000/admin-ui/AuthScreen/index.html`
+### Mobile (`mobile_app`)
 
-Alternative options:
+```bash
+flutter pub get
+flutter run
+flutter test
+```
 
-- Open `admin/index.html` directly in the browser
-- Use VS Code Live Server
+## Windows quick commands (PowerShell)
 
-## Backend scripts
+If you are on Windows PowerShell, this exact sequence works:
 
-Inside `backend/backend`:
+```powershell
+cd backend/backend
+docker-compose up -d
+npm install
+npx prisma migrate dev
+npm run dev
+```
 
-- `npm run dev` — start development server
-- `npm run build` — compile TypeScript
-- `npm run start` — run compiled app
-- `npm test` — run tests
-- `npm run check` — type check
+In a second terminal:
+
+```powershell
+cd mobile_app
+flutter pub get
+flutter run
+```
 
 ## Repository structure
 
 ```text
 Cash_IO/
-├─ admin/
-├─ backend/
-│  └─ backend/
-├─ mobile_app/
-└─ README.md
+|- admin/
+|- backend/
+|  |- backend/
+|- mobile_app/
+|- README.md
 ```
 
-## Planned next work
+## Troubleshooting
 
-- Complete end-to-end API integration with mobile and admin
-- Improve role-based flows (user/agent/admin)
-- Harden validation, auth, and error handling
-- Add more automated tests and deployment docs
+### Port 4000 already in use
 
-## Note
+Change `PORT` in `.env`, then restart backend.
 
-Some modules/screens are partially implemented and may change as development continues.
+### Database connection error
+
+Check Docker is running and container is up:
+
+```bash
+docker ps
+```
+
+Then verify `DATABASE_URL` in `.env`.
+
+### Prisma migration issues
+
+Run from `backend/backend` only:
+
+```bash
+npx prisma migrate dev
+```
+
+### Flutter device not found
+
+Run:
+
+```bash
+flutter doctor
+flutter devices
+```
+
+## Notes
+
+- Some modules are still under active development.
+- API and UI details may evolve as features are completed.
