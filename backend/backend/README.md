@@ -15,6 +15,37 @@ TypeScript/Node.js backend for the Cash Platform project.
 
 From a terminal:
 
+### Fastest setup (recommended)
+
+From this `backend` directory:
+
+```bash
+npm run setup
+npm run dev
+```
+
+What `npm run setup` does automatically:
+
+- Creates `.env` from `.env.example` if missing
+- Installs dependencies
+- Starts PostgreSQL with Docker (local mode)
+- Generates Prisma client
+- Applies migrations
+- Seeds demo data
+
+### Hosted DB setup (no Docker)
+
+If your team uses one hosted Postgres DB, run:
+
+```bash
+# PowerShell
+$env:SETUP_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+npm run setup:hosted
+npm run dev
+```
+
+In hosted mode, setup creates `.env` automatically from `SETUP_DATABASE_URL` and skips Docker.
+
 1. **Clone and enter the backend folder**
 
    ```bash
@@ -167,6 +198,38 @@ DATABASE_URL=postgresql://cash_user:cash_password@localhost:5432/cash_db
 JWT_SECRET=super-secret-dev
 PORT=4000
 ```
+
+## Hosted database (no Docker required)
+
+If you want your backend to run from anywhere without starting Docker Desktop each time,
+use a managed Postgres provider (for example: Neon, Supabase, Railway, Render).
+
+1. Create a Postgres database on your chosen provider.
+2. Copy the connection string from the provider dashboard.
+3. Put it in `.env` as `DATABASE_URL`.
+4. Run migrations once against the hosted database.
+5. Start backend normally.
+
+Example `.env` (hosted DB):
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+JWT_SECRET=super-secret-dev
+PORT=4000
+```
+
+Then run:
+
+```bash
+npx prisma migrate deploy
+npm run dev
+```
+
+Notes:
+
+- Keep Docker-based setup for local development if you want, but it is optional.
+- For production, prefer `npx prisma migrate deploy` (not `migrate dev`).
+- Most hosted providers require SSL, so `?sslmode=require` is commonly needed.
 
 ## Health & Auth
 

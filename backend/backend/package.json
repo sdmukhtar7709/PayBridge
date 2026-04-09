@@ -5,6 +5,8 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "setup:hosted": "node scripts/setup.mjs --hosted",
     "dev": "nodemon --watch src --exec \"node --import ./register-ts-node-esm.mjs --experimental-specifier-resolution=node src/index.ts\"",
     "build": "tsc -p .",
     "start": "node dist/index.js",
