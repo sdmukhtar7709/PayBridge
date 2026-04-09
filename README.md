@@ -89,8 +89,30 @@ LOG_LEVEL=info
 From `backend/backend`:
 
 ```bash
+npm run setup
+npm run dev
+```
+
+What `npm run setup` does:
+- creates `.env` from `.env.example` (if missing)
+- installs dependencies
+- starts PostgreSQL (Docker local mode)
+- runs Prisma generate + migrations + seed
+
+Alternative (manual steps):
+
+```bash
 npm install
 npx prisma migrate dev
+npm run dev
+```
+
+Hosted DB (no Docker):
+
+```powershell
+cd backend/backend
+$env:SETUP_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+npm run setup:hosted
 npm run dev
 ```
 
@@ -209,3 +231,83 @@ flutter devices
 
 - Some modules are still under active development.
 - API and UI details may evolve as features are completed.
+
+## No Docker Setup (Step by Step, After Download)
+
+Use this flow if Docker Desktop is not installed on your PC.
+
+### What you need
+
+- Node.js 20+
+- npm 10+
+- Git
+- One hosted PostgreSQL database URL (Neon/Supabase/Railway/Render)
+
+### 1) Download or clone project
+
+Option A (Git clone):
+
+```bash
+git clone <repo-url>
+cd Cash_IO
+```
+
+Option B (ZIP download):
+
+1. Download ZIP from GitHub.
+2. Extract the ZIP.
+3. Open terminal in extracted `Cash_IO` folder.
+
+### 2) Go to backend folder
+
+```powershell
+cd backend/backend
+```
+
+### 3) Set hosted database URL (PowerShell)
+
+```powershell
+$env:SETUP_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+```
+
+Replace `USER`, `PASSWORD`, `HOST`, and `DB_NAME` with your real database values.
+
+### 4) Run automated setup (no Docker)
+
+```powershell
+npm run setup:hosted
+```
+
+This command automatically:
+
+- creates `.env`
+- installs dependencies
+- runs Prisma generate
+- runs migrations
+- seeds demo data
+
+### 5) Start backend
+
+```powershell
+npm run dev
+```
+
+Backend URL:
+
+- http://localhost:4000
+
+Health check:
+
+- http://localhost:4000/health
+
+### 6) Open Admin UI
+
+- http://localhost:4000/admin-ui/AuthScreen/index.html
+
+### Common issue
+
+If setup says database connection failed, verify that:
+
+1. Hosted DB URL is correct.
+2. SSL is enabled (usually `?sslmode=require`).
+3. Database user has permission to create/read tables.
