@@ -18,6 +18,46 @@ Work in progress. Core flows are implemented and can run locally for development
 - Mobile: Flutter (Dart)
 - Testing: Vitest + Supertest (backend)
 
+## Super Easy Run (Copy-Paste)
+
+Follow any one option below.
+
+### Option A: Docker Desktop installed (local DB)
+
+1. Open terminal in project root `Cash_IO`.
+2. Run:
+
+```powershell
+cd backend/backend
+npm run setup
+npm run dev
+```
+
+3. Open health URL:
+
+- http://localhost:4000/health
+
+### Option B: No Docker Desktop (hosted DB)
+
+1. Open terminal in project root `Cash_IO`.
+2. Run:
+
+```powershell
+cd backend/backend
+$env:SETUP_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+npm run setup:hosted
+npm run dev
+```
+
+3. Open health URL:
+
+- http://localhost:4000/health
+
+Important:
+
+- If same `DATABASE_URL` is used by multiple developers, everyone sees same existing DB data.
+- If local Docker DB is used, that data is separate per machine.
+
 ## Run in 5 simple steps (recommended)
 
 Use this if you want the fastest path to run the project locally.
