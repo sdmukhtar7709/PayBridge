@@ -47,7 +47,7 @@ function startServer(port: number): Promise<Server> {
 
       logger.info(`API Server   : http://localhost:${port}`);
       logger.info(`Admin Panel  : http://localhost:${port}/admin-ui/AuthScreen/index.html`);
-      logger.info(`API Base URL : http://localhost:${port}/api`);
+      logger.info(`API Base URL : http://localhost:${port} (also supports /api prefix)`);
       logger.info(`Prisma Studio: http://localhost:5555`);
       logger.info(`Studio Cmd   : npm run studio`);
       logger.info(`Alt Cmd      : npx prisma studio`);

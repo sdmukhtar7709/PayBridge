@@ -50,13 +50,47 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 const adminUiPath = path.resolve(currentDirPath, "../../../admin");
 
-const corsOrigins =
-  env.nodeEnv === "development" || allowedOrigins.length === 0
-    ? true
-    : allowedOrigins;
+const allowAnyOrigin =
+  env.nodeEnv === "development" ||
+  allowedOrigins.length === 0 ||
+  allowedOrigins.includes("*");
+
+const corsOptions: cors.CorsOptions = {
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
+  exposedHeaders: ["X-Request-Id"],
+  maxAge: 86400,
+  origin: (origin, callback) => {
+    if (allowAnyOrigin) {
+      callback(null, true);
+      return;
+    }
+
+    // Allow non-browser clients without Origin header.
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Not allowed by CORS"));
+  },
+};
+
+const mountWithApiAlias = (routePath: string, ...handlers: unknown[]) => {
+  app.use(routePath, ...(handlers as Parameters<typeof app.use>[1][]));
+  const apiRoutePath = routePath === "/" ? "/api" : `/api${routePath}`;
+  app.use(apiRoutePath, ...(handlers as Parameters<typeof app.use>[1][]));
+};
 
 app.use(helmet());
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -118,36 +152,50 @@ app.use((req, res, next) => {
 });
 
 // Health endpoint using Prisma
-app.get("/health", async (_req, res) => {
+const healthHandler: express.RequestHandler = async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     return res.json({ ok: true, db: "up" });
   } catch {
     return res.status(500).json({ ok: false, db: "down" });
   }
-});
+};
+
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 // Mount all routers/middleware
-app.use("/admin", adminAgentRoutes);
-app.use("/", healthRoutes);
-app.use("/version", versionRoutes);
-app.use("/agent", requireAuth, agentSelfRoutes);
-app.use("/agents", agentPublicRoutes);
-app.use("/transactions", cashTransactionRoutes);
-app.use("/maps", mapsProxyRoutes);
-app.use("/auth", authRateLimit, authRoutes);
-app.use("/auth", authRateLimit, sessionRoutes);
-app.use("/user", dataRateLimit, userRoutes);
-app.use("/accounts", dataRateLimit, accountRoutes);
-app.use("/", agentRegisterRoutes);
-app.use("/agent/transactions", requireAuth, agentTransactionRoutes);
-app.use("/transactions", dataRateLimit, transactionRoutes);
-app.use("/categories", dataRateLimit, categoryRoutes);
-app.use("/metrics", metricsRoutes);
-app.use("/docs", docsRoutes);
+mountWithApiAlias("/admin", adminAgentRoutes);
+mountWithApiAlias("/", healthRoutes);
+mountWithApiAlias("/version", versionRoutes);
+mountWithApiAlias("/agent", requireAuth, agentSelfRoutes);
+mountWithApiAlias("/agents", agentPublicRoutes);
+mountWithApiAlias("/transactions", cashTransactionRoutes);
+mountWithApiAlias("/maps", mapsProxyRoutes);
+mountWithApiAlias("/auth", authRateLimit, authRoutes);
+mountWithApiAlias("/auth", authRateLimit, sessionRoutes);
+mountWithApiAlias("/user", dataRateLimit, userRoutes);
+mountWithApiAlias("/accounts", dataRateLimit, accountRoutes);
+mountWithApiAlias("/", agentRegisterRoutes);
+mountWithApiAlias("/agent/transactions", requireAuth, agentTransactionRoutes);
+mountWithApiAlias("/transactions", dataRateLimit, transactionRoutes);
+mountWithApiAlias("/categories", dataRateLimit, categoryRoutes);
+mountWithApiAlias("/metrics", metricsRoutes);
+mountWithApiAlias("/docs", docsRoutes);
 
 // OpenAPI JSON endpoint
 app.get("/docs/openapi.json", (req, res, next) => {
+  try {
+    const yamlPath = new URL("../docs/openapi.yaml", import.meta.url);
+    const raw = readFileSync(yamlPath, "utf8");
+    const doc = YAML.parse(raw);
+    res.type("application/json").send(doc);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/api/docs/openapi.json", (req, res, next) => {
   try {
     const yamlPath = new URL("../docs/openapi.yaml", import.meta.url);
     const raw = readFileSync(yamlPath, "utf8");
