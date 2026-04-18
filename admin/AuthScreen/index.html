@@ -39,12 +39,64 @@
                     <button id="loginSubmit" class="submit-button" type="submit">Login</button>
                 </div>
 
+                <p class="switch-link slide-element">
+                    Need admin access?
+                    <a href="#" id="showRegister">Create admin account</a>
+                </p>
+
                 <p id="loginStatus" class="form-status slide-element" aria-live="polite"></p>
+            </form>
+        </div>
+
+        <div class="credentials-panel signup">
+            <h2 class="slide-element">Admin Register</h2>
+            <form id="registerForm" action="#">
+                <div class="field-wrapper slide-element">
+                    <input id="registerName" type="text" required>
+                    <label for="registerName">Full Name</label>
+                    <i class="fa-solid fa-id-card"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <input id="registerEmail" type="email" required>
+                    <label for="registerEmail">Email</label>
+                    <i class="fa-solid fa-envelope"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <input id="registerPassword" type="password" required minlength="8">
+                    <label for="registerPassword">Password</label>
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <input id="registerCode" type="text" required minlength="4">
+                    <label for="registerCode">ADMIN_REGISTRATION_CODE</label>
+                    <i class="fa-solid fa-key"></i>
+                </div>
+
+                <p class="switch-link slide-element">Use the exact <strong>ADMIN_REGISTRATION_CODE</strong> value configured in backend environment variables.</p>
+
+                <div class="field-wrapper slide-element">
+                    <button id="registerSubmit" class="submit-button" type="submit">Register Admin</button>
+                </div>
+
+                <p class="switch-link slide-element">
+                    Already have account?
+                    <a href="#" id="showLogin">Back to login</a>
+                </p>
+
+                <p id="registerStatus" class="form-status slide-element" aria-live="polite"></p>
             </form>
         </div>
 
         <div class="welcome-section signin">
             <h2 class="slide-element">WELCOME BACK!</h2>
+        </div>
+
+        <div class="welcome-section signup">
+            <h2 class="slide-element">CREATE ADMIN</h2>
+            <p class="slide-element">Create an admin account using your server ADMIN_REGISTRATION_CODE value.</p>
         </div>
 
     </div>

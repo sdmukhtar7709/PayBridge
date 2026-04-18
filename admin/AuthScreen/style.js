@@ -1,7 +1,13 @@
 const apiBaseInput = document.getElementById('apiBaseInput');
+const authWrapper = document.querySelector('.auth-wrapper');
 const loginForm = document.getElementById('loginForm');
 const loginSubmit = document.getElementById('loginSubmit');
 const loginStatus = document.getElementById('loginStatus');
+const registerForm = document.getElementById('registerForm');
+const registerSubmit = document.getElementById('registerSubmit');
+const registerStatus = document.getElementById('registerStatus');
+const showRegister = document.getElementById('showRegister');
+const showLogin = document.getElementById('showLogin');
 
 function normalizeApiBase(url) {
     const fallback = 'http://localhost:4000';
@@ -64,6 +70,39 @@ async function loginAdminSession(email, password) {
     return postJson('/auth/login-with-refresh', { email, password });
 }
 
+async function registerAdminAccount(payload) {
+    return postJson('/auth/admin/register', payload);
+}
+
+function setAuthMode(mode) {
+    if (!authWrapper) {
+        return;
+    }
+
+    if (mode === 'register') {
+        authWrapper.classList.add('toggled');
+        setStatus(loginStatus, '');
+        return;
+    }
+
+    authWrapper.classList.remove('toggled');
+    setStatus(registerStatus, '');
+}
+
+if (showRegister) {
+    showRegister.addEventListener('click', (e) => {
+        e.preventDefault();
+        setAuthMode('register');
+    });
+}
+
+if (showLogin) {
+    showLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        setAuthMode('login');
+    });
+}
+
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     setStatus(loginStatus, '');
@@ -104,6 +143,56 @@ loginForm.addEventListener('submit', async (e) => {
         loginSubmit.disabled = false;
     }
 });
+
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setStatus(registerStatus, '');
+
+        const name = document.getElementById('registerName').value.trim();
+        const email = document.getElementById('registerEmail').value.trim();
+        const password = document.getElementById('registerPassword').value;
+        const registrationCode = document.getElementById('registerCode').value.trim();
+
+        if (!name || !email || !password || !registrationCode) {
+            setStatus(registerStatus, 'All fields are required.', 'error');
+            return;
+        }
+
+        if (password.length < 8) {
+            setStatus(registerStatus, 'Password must be at least 8 characters.', 'error');
+            return;
+        }
+
+        registerSubmit.disabled = true;
+        try {
+            await registerAdminAccount({
+                name,
+                email,
+                password,
+                registrationCode,
+            });
+
+            setStatus(registerStatus, 'Admin account created. You can now log in.', 'success');
+            registerForm.reset();
+            setAuthMode('login');
+
+            const loginEmail = document.getElementById('loginEmail');
+            if (loginEmail) {
+                loginEmail.value = email;
+            }
+        } catch (error) {
+            const message = error?.message || 'Unknown error';
+            if (message.toLowerCase().includes('registration code')) {
+                setStatus(registerStatus, 'Registration failed: invalid ADMIN_REGISTRATION_CODE. Check backend environment value.', 'error');
+            } else {
+                setStatus(registerStatus, `Registration failed: ${message}`, 'error');
+            }
+        } finally {
+            registerSubmit.disabled = false;
+        }
+    });
+}
 
 const savedApiBase = localStorage.getItem('cashio_admin_api_base');
 apiBaseInput.value = normalizeApiBase(savedApiBase || apiBaseInput.value);
