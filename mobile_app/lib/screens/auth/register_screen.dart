@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../config/api_config.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
+import '../../widgets/responsive_utils.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -20,6 +22,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const Color _secondary = Color(0xFF2F80ED);
   static const Color _bg = Color(0xFFF5F7FF);
   static final RegExp _emailPattern = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+
+  String _friendlyErrorMessage(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    final lower = message.toLowerCase();
+    final looksLikeNetworkIssue =
+        lower.contains('socketexception') ||
+        lower.contains('clientexception') ||
+        lower.contains('timed out') ||
+        lower.contains('connection refused') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('no route to host');
+
+    if (looksLikeNetworkIssue) {
+      return 'Cannot reach server. If using USB, run adb reverse for the backend port (4000 or 4001) and use API_BASE_URL=http://127.0.0.1:<PORT>. If using Wi-Fi, keep phone and PC on same network and set API_BASE_URL to your PC LAN IP. Current API_BASE_URL: ${ApiConfig.baseUrl}';
+    }
+
+    return message;
+  }
 
   @override
   void dispose() {
@@ -70,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       setState(() => _isRegistering = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(_friendlyErrorMessage(error))),
       );
       return;
     }
@@ -86,26 +107,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scaleFactor = Responsive.scaleFactor(context);
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+            final pagePadding = Responsive.pagePadding(context);
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                pagePadding.left,
+                pagePadding.top,
+                pagePadding.right,
+                20 + bottomInset,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
+                    constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Center(
                           child: Container(
-                            width: 92,
-                            height: 92,
+                            width: 92 * scaleFactor,
+                            height: 92 * scaleFactor,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(22),
@@ -132,13 +162,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           'Register',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 28,
+                            fontSize: 28 * scaleFactor,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF131A2A),
+                            color: const Color(0xFF131A2A),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -146,7 +176,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           'Create your account',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 14 * scaleFactor,
                             color: Colors.grey.shade700,
                           ),
                         ),

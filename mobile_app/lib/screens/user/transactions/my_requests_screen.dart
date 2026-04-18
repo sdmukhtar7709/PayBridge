@@ -475,111 +475,170 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: statusBg,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(Icons.receipt_long, color: statusColor, size: 20),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final isTightWidth = constraints.maxWidth < 360;
+
+                                      Widget trailingPanel({required CrossAxisAlignment alignment}) {
+                                        return Column(
+                                          crossAxisAlignment: alignment,
                                           children: [
                                             Text(
-                                              'Transaction with ${item.agentName}',
+                                              '₹${item.totalPaid}',
                                               style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.black87,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 16,
+                                                color: Color(0xff111827),
                                               ),
-                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              'Agent Fee ₹${item.agentCommission}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xff475569),
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                             const SizedBox(height: 6),
-                                            Text(
-                                              _requestTypeLabel(item.requestTypeLabel),
-                                              style: const TextStyle(color: Colors.black87, fontSize: 12),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              tsLabel,
-                                              style: const TextStyle(color: Colors.black54, fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            '₹${item.totalPaid}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 16,
-                                              color: Color(0xff111827),
-                                            ),
-                                          ),
-                                          Text(
-                                            'Agent Fee ₹${item.agentCommission}',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Color(0xff475569),
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: statusBg,
-                                              borderRadius: BorderRadius.circular(999),
-                                            ),
-                                            child: Text(
-                                              item.status.toUpperCase(),
-                                              style: TextStyle(
-                                                color: statusColor,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w700,
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 3,
                                               ),
-                                            ),
-                                          ),
-                                          if (item.status == 'confirmed' && item.userRating == null)
-                                            TextButton(
-                                              onPressed: () => _openRatingDialog(item),
-                                              style: TextButton.styleFrom(
-                                                minimumSize: const Size(0, 0),
-                                                padding: const EdgeInsets.only(top: 4),
-                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                foregroundColor: const Color(0xff2563EB),
+                                              decoration: BoxDecoration(
+                                                color: statusBg,
+                                                borderRadius: BorderRadius.circular(999),
                                               ),
-                                              child: const Text(
-                                                'Rate Agent',
+                                              child: Text(
+                                                item.status.toUpperCase(),
                                                 style: TextStyle(
-                                                  fontSize: 11,
+                                                  color: statusColor,
+                                                  fontSize: 10,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
                                             ),
-                                          if (item.userRating != null)
-                                            Text(
-                                              'Rated ${item.userRating}/5',
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.black54,
-                                                fontWeight: FontWeight.w700,
+                                            if (item.status == 'confirmed' && item.userRating == null)
+                                              TextButton(
+                                                onPressed: () => _openRatingDialog(item),
+                                                style: TextButton.styleFrom(
+                                                  minimumSize: const Size(0, 0),
+                                                  padding: const EdgeInsets.only(top: 4),
+                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  foregroundColor: const Color(0xff2563EB),
+                                                ),
+                                                child: const Text(
+                                                  'Rate Agent',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
                                               ),
+                                            if (item.userRating != null)
+                                              Text(
+                                                'Rated ${item.userRating}/5',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.black54,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      }
+
+                                      if (isTightWidth) {
+                                        return Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 40,
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
+                                                    color: statusBg,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Icon(Icons.receipt_long, color: statusColor, size: 20),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        'Transaction with ${item.agentName}',
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Colors.black87,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      const SizedBox(height: 6),
+                                                      Text(
+                                                        _requestTypeLabel(item.requestTypeLabel),
+                                                        style: const TextStyle(color: Colors.black87, fontSize: 12),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        tsLabel,
+                                                        style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                             ),
+                                            const SizedBox(height: 10),
+                                            trailingPanel(alignment: CrossAxisAlignment.start),
+                                          ],
+                                        );
+                                      }
+
+                                      return Row(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: statusBg,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(Icons.receipt_long, color: statusColor, size: 20),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Transaction with ${item.agentName}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.black87,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  _requestTypeLabel(item.requestTypeLabel),
+                                                  style: const TextStyle(color: Colors.black87, fontSize: 12),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  tsLabel,
+                                                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          trailingPanel(alignment: CrossAxisAlignment.end),
                                         ],
-                                      ),
-                                    ],
+                                      );
+                                    },
                                   ),
                                 ),
                               );

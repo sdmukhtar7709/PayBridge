@@ -3,21 +3,28 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  static String get baseUrl {
+  static const String _androidUsbDefault = 'http://127.0.0.1:4000';
+  static const String _androidUsbFallback = 'http://127.0.0.1:4001';
+
+  static List<String> get candidateBaseUrls {
     const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     if (envUrl.isNotEmpty) {
-      return envUrl;
+      return [envUrl];
     }
 
     if (kIsWeb) {
-      return 'http://localhost:4000';
+      return const ['http://localhost:4000', 'http://localhost:4001'];
     }
 
     if (Platform.isAndroid) {
-      // Android emulator uses 10.0.2.2 to reach the host machine.
-      return 'http://10.0.2.2:4000';
+      // Physical Android over USB should use adb reverse + loopback.
+      return const [_androidUsbDefault, _androidUsbFallback];
     }
 
-    return 'http://localhost:4000';
+    return const ['http://localhost:4000', 'http://localhost:4001'];
+  }
+
+  static String get baseUrl {
+    return candidateBaseUrls.first;
   }
 }

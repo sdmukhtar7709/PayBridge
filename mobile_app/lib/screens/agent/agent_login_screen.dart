@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/api_config.dart';
 import '../../services/agent_service.dart';
 import '../../services/local_notification_service.dart';
 import '../auth/login_screen.dart';
@@ -21,6 +22,25 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
   static const Color _primary = Color(0xFF3B3A8F);
   static const Color _secondary = Color(0xFF2B59C3);
   static const Color _bg = Color(0xFFEEF1FF);
+
+  String _friendlyErrorMessage(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    final lower = message.toLowerCase();
+    final looksLikeNetworkIssue =
+        lower.contains('socketexception') ||
+        lower.contains('clientexception') ||
+        lower.contains('timed out') ||
+        lower.contains('connection refused') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('no route to host');
+
+    if (looksLikeNetworkIssue) {
+      return 'Cannot reach server. If using USB, run adb reverse for the backend port (4000 or 4001) and use API_BASE_URL=http://127.0.0.1:<PORT>. If using Wi-Fi, keep phone and PC on same network and set API_BASE_URL to your PC LAN IP. Current API_BASE_URL: ${ApiConfig.baseUrl}';
+    }
+
+    return message;
+  }
 
   @override
   void dispose() {
@@ -56,7 +76,7 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
       if (!mounted) return;
       setState(() => _isLoggingIn = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(_friendlyErrorMessage(e))),
       );
     }
   }
@@ -68,8 +88,10 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(24, 18, 24, 22 + bottomInset),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Center(

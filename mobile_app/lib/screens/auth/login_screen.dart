@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../config/api_config.dart';
 import '../../services/auth_service.dart';
 import '../../services/local_notification_service.dart';
 import '../agent/agent_access_screen.dart';
 import '../user/home/user_home_screen.dart';
 import 'register_screen.dart';
+import '../../widgets/responsive_utils.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +24,25 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color _secondary = Color(0xFF2F80ED);
   static const Color _bg = Color(0xFFF5F7FF);
   static final RegExp _emailPattern = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+
+  String _friendlyErrorMessage(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    final lower = message.toLowerCase();
+    final looksLikeNetworkIssue =
+        lower.contains('socketexception') ||
+        lower.contains('clientexception') ||
+        lower.contains('timed out') ||
+        lower.contains('connection refused') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('no route to host');
+
+    if (looksLikeNetworkIssue) {
+      return 'Cannot reach server. If using USB, run adb reverse for the backend port (4000 or 4001) and use API_BASE_URL=http://127.0.0.1:<PORT>. If using Wi-Fi, keep phone and PC on same network and set API_BASE_URL to your PC LAN IP. Current API_BASE_URL: ${ApiConfig.baseUrl}';
+    }
+
+    return message;
+  }
 
   @override
   void dispose() {
@@ -66,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       setState(() => _isLoggingIn = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(_friendlyErrorMessage(error))),
       );
       return;
     }
@@ -82,18 +103,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scaleFactor = Responsive.scaleFactor(context);
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+            final pagePadding = Responsive.pagePadding(context);
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                pagePadding.left,
+                pagePadding.top,
+                pagePadding.right,
+                20 + bottomInset,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
+                    constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -101,8 +131,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 4),
                         Center(
                           child: Container(
-                            width: 92,
-                            height: 92,
+                            width: 92 * scaleFactor,
+                            height: 92 * scaleFactor,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(22),
@@ -121,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) => const Icon(
                                   Icons.account_balance_wallet_outlined,
-                                  size: 46,
+                                  size: 44,
                                   color: Colors.green,
                                 ),
                               ),
@@ -129,13 +159,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           'Login',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 28,
+                            fontSize: 28 * scaleFactor,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF131A2A),
+                            color: const Color(0xFF131A2A),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -143,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Welcome back',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 14 * scaleFactor,
                             color: Colors.grey.shade700,
                           ),
                         ),
@@ -214,17 +244,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            const Text("Don't have an account?"),
+                            Text(
+                              "Don't have an account?",
+                              style: TextStyle(fontSize: 13 * scaleFactor),
+                            ),
                             TextButton(
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(builder: (_) => const RegisterScreen()),
                                 );
                               },
-                              child: const Text('Register'),
+                              child: Text(
+                                'Register',
+                                style: TextStyle(fontSize: 13 * scaleFactor),
+                              ),
                             ),
                           ],
                         ),

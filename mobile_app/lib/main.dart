@@ -75,7 +75,20 @@ class _MyAppState extends State<MyApp> {
       navigatorKey: _rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Cash Platform',
-      theme: ThemeData(primarySwatch: Colors.green),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        final clampedTextScale = mediaQuery.textScaleFactor.clamp(0.95, 1.10);
+        return MediaQuery(
+          data: mediaQuery.copyWith(textScaleFactor: clampedTextScale),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+        ),
+      ),
       home: const AppStartScreen(),
     );
   }

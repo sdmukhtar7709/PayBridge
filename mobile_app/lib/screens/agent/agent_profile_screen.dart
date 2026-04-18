@@ -76,6 +76,45 @@ class _AgentProfileScreenState extends State<AgentProfileScreen> {
     return value == null ? fallback : value.toString();
   }
 
+  Future<void> _confirmLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: AlertDialog(
+              title: const Text('Logout'),
+              content: const SingleChildScrollView(
+                child: Text('Are you sure you want to logout?'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Logout'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldLogout == true) {
+      final navigator = Navigator.of(context);
+      await AgentService.clearToken();
+      if (!mounted) return;
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _profile;
@@ -93,14 +132,11 @@ class _AgentProfileScreenState extends State<AgentProfileScreen> {
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
                     if (_loading)
                       const Padding(
                         padding: EdgeInsets.only(bottom: 12),
@@ -251,37 +287,31 @@ class _AgentProfileScreenState extends State<AgentProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
+                    Center(
+                      child: Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        constraints: const BoxConstraints(maxWidth: 520),
+                        child: ElevatedButton.icon(
+                          onPressed: _confirmLogout,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Logout'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final navigator = Navigator.of(context);
-                  await AgentService.clearToken();
-                  if (!mounted) return;
-                  navigator.pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                },
-                icon: const Icon(Icons.logout, size: 18, color: Color(0xffDC2626)),
-                label: const Text('Logout'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 52),
-                  foregroundColor: const Color(0xffDC2626),
-                  side: const BorderSide(color: Color(0xffFCA5A5)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

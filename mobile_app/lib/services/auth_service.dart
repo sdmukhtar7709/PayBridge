@@ -5,8 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class AuthService {
-  static final String _apiBaseUrl = ApiConfig.baseUrl;
-  static final String _authPath = '$_apiBaseUrl/auth';
   static const String _tokenKey = 'auth_token';
 
   static Future<AuthResult> register(String email, String password) async {
@@ -46,7 +44,11 @@ class AuthService {
 
   // --- internals ---
   static List<String> _candidateAuthUrls(String path) {
-    return <String>['$_authPath$path'];
+    final urls = <String>[];
+    for (final baseUrl in ApiConfig.candidateBaseUrls) {
+      urls.add('$baseUrl/auth$path');
+    }
+    return urls;
   }
 
   static Future<Map<String, dynamic>> _postAny(

@@ -4,8 +4,12 @@ extension _UserHomeWidgets on _UserHomeScreenState {
   // -------------------------------------------------------
   // Header
   Widget _buildHeader(BuildContext context) {
-    return Row(
-      children: [
+    final scaleFactor = Responsive.scaleFactor(context);
+    final avatarDiameter = (44 * scaleFactor).clamp(40.0, 48.0);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
+      child: Row(
+        children: [
         GestureDetector(
           onTap: () {
             Navigator.of(context)
@@ -18,7 +22,7 @@ extension _UserHomeWidgets on _UserHomeScreenState {
             });
           },
           child: CircleAvatar(
-            radius: 24,
+            radius: avatarDiameter / 2,
             backgroundColor: const Color(0xFF2962FF),
             backgroundImage: _profilePhotoBytes != null
                 ? MemoryImage(_profilePhotoBytes!)
@@ -38,13 +42,16 @@ extension _UserHomeWidgets on _UserHomeScreenState {
               children: [
                 Text(
                   'Hi $_profileFirstName',
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF111827),
+                  style: TextStyle(
+                    fontSize: 20 * scaleFactor,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1F2937),
+                    letterSpacing: 0.1,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     const Icon(
@@ -56,18 +63,15 @@ extension _UserHomeWidgets on _UserHomeScreenState {
                     Expanded(
                       child: Text(
                         _cityLabel.trim().isEmpty ? 'Set your location' : _cityLabel,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14 * scaleFactor,
+                          height: 1.2,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: Color(0xff9CA3AF),
                     ),
                   ],
                 ),
@@ -79,7 +83,7 @@ extension _UserHomeWidgets on _UserHomeScreenState {
           children: [
             IconButton(
               onPressed: _openNotificationCenter,
-              icon: const Icon(Icons.notifications_outlined, size: 28),
+              icon: const Icon(Icons.notifications_outlined, size: 24),
             ),
             StreamBuilder<int>(
               stream: LocalNotificationService.instance.onBadgeCount,
@@ -112,7 +116,8 @@ extension _UserHomeWidgets on _UserHomeScreenState {
             ),
           ],
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -126,60 +131,61 @@ extension _UserHomeWidgets on _UserHomeScreenState {
       ),
       builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xffEAF0FF), Color(0xffF6FAFF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xffEAF0FF), Color(0xffF6FAFF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xffE6EBF5)),
                     ),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xffE6EBF5)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.notifications_outlined, color: Color(0xff2563EB)),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Notifications',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_outlined, color: Color(0xff2563EB)),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Notifications',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          ),
                         ),
-                      ),
-                      TextButton(
-                        onPressed: () =>
-                            LocalNotificationService.instance.clearAllNotifications(),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xff2563EB),
+                        TextButton(
+                          onPressed: () =>
+                              LocalNotificationService.instance.clearAllNotifications(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xff2563EB),
+                          ),
+                          child: const Text('Clear All'),
                         ),
-                        child: const Text('Clear All'),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                StreamBuilder<List<LocalNotificationItem>>(
-                  stream: LocalNotificationService.instance.onNotificationList,
-                  initialData: LocalNotificationService.instance.activeNotifications,
-                  builder: (context, snapshot) {
-                    final items = snapshot.data ?? [];
-                    if (items.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(child: Text('No notifications yet')),
-                      );
-                    }
-                    return Flexible(
-                      child: ListView.separated(
+                  const SizedBox(height: 12),
+                  StreamBuilder<List<LocalNotificationItem>>(
+                    stream: LocalNotificationService.instance.onNotificationList,
+                    initialData: LocalNotificationService.instance.activeNotifications,
+                    builder: (context, snapshot) {
+                      final items = snapshot.data ?? [];
+                      if (items.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(child: Text('No notifications yet')),
+                        );
+                      }
+                      return ListView.separated(
                         shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         itemCount: items.length,
                         separatorBuilder: (context, index) => const Divider(height: 18),
                         itemBuilder: (itemContext, index) {
@@ -221,66 +227,15 @@ extension _UserHomeWidgets on _UserHomeScreenState {
                             },
                           );
                         },
-                      ),
-                    );
-                  },
-                ),
-              ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
-    );
-  }
-
-  // -------------------------------------------------------
-  // Hero card
-  Widget _buildHeroCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFEAF0FF), Color(0xFFF6FAFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDEE8FF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.place_outlined, size: 18, color: Color(0xFF2962FF)),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Current Area',
-                style: TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _cityLabel,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text('Tap header area to switch or update location', style: TextStyle(color: Colors.black54)),
-        ],
-      ),
     );
   }
 
@@ -335,14 +290,75 @@ extension _UserHomeWidgets on _UserHomeScreenState {
   // -------------------------------------------------------
   // Trust indicators
   Widget _buildTrustRow(BuildContext context) {
-    return Column(
-      children: [
-        _infoCard('Verified Agents'),
-        const SizedBox(height: 10),
-        _infoCard('Secure OTP Exchange'),
-        const SizedBox(height: 10),
-        _infoCard('Instant Transactions'),
-      ],
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFE8F0FF), Color(0xFFF0EEFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Convert Digital Money to Cash',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1F2937),
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Nearby & Secure',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Row(
+            children: [
+              Expanded(
+                child: _TrustChip(icon: Icons.verified_rounded, label: 'Verified Agents'),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: _TrustChip(icon: Icons.lock_outline_rounded, label: 'Secure OTP'),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: _TrustChip(icon: Icons.flash_on_rounded, label: 'Instant Transactions'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF1F2937),
+      ),
     );
   }
 
@@ -414,16 +430,17 @@ extension _UserHomeWidgets on _UserHomeScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              sectionTitle,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-            ),
+            _buildSectionTitle(sectionTitle),
             Text(
               sectionCity,
-              style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -441,6 +458,7 @@ extension _UserHomeWidgets on _UserHomeScreenState {
   // -------------------------------------------------------
   // Map preview
   Widget _buildMapPreview() {
+    final mapHeight = (MediaQuery.sizeOf(context).width * 0.34).clamp(120.0, 170.0);
     final places = [
       {'name': 'State Bank of India', 'type': 'Bank', 'distance': '0.8 km'},
       {'name': 'HDFC ATM', 'type': 'ATM', 'distance': '1.2 km'},
@@ -464,29 +482,25 @@ extension _UserHomeWidgets on _UserHomeScreenState {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text(
-                  'Nearby Banks & ATMs',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xffDDE7FF)),
+                _buildSectionTitle('Nearby Banks & ATMs'),
+                OutlinedButton.icon(
+                  onPressed: _openFullMap,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xff2563EB),
+                    side: const BorderSide(color: Color(0xffDDE7FF)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.map_outlined, color: Color(0xff2563EB), size: 16),
-                      SizedBox(width: 6),
-                      Text(
-                        'Open Map',
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-                      ),
-                    ],
+                  icon: const Icon(Icons.map_outlined, size: 16),
+                  label: const Text(
+                    'Open Map',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                   ),
                 ),
               ],
@@ -503,48 +517,26 @@ extension _UserHomeWidgets on _UserHomeScreenState {
               ],
             ),
             const SizedBox(height: 10),
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: SizedBox(
-                    height: 150,
-                    child: IgnorePointer(
-                      child: GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: _mapCenter,
-                          zoom: 13,
-                        ),
-                        myLocationEnabled: true,
-                        myLocationButtonEnabled: false,
-                        zoomControlsEnabled: false,
-                        markers: _mapMarkers,
-                        onMapCreated: (controller) {
-                          _mapController = controller;
-                        },
-                      ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                height: mapHeight,
+                child: IgnorePointer(
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: _mapCenter,
+                      zoom: 13,
                     ),
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    markers: _mapMarkers,
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                    },
                   ),
                 ),
-                Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: ElevatedButton(
-                    onPressed: _openFullMap,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF2962FF),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text(
-                      'View All →',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 12),
             Column(
@@ -604,7 +596,7 @@ extension _UserHomeWidgets on _UserHomeScreenState {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -617,6 +609,8 @@ extension _UserHomeWidgets on _UserHomeScreenState {
           Text(
             distance,
             style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xff2563EB)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -636,9 +630,13 @@ extension _UserHomeWidgets on _UserHomeScreenState {
         children: [
           Icon(Icons.warning, color: Colors.orange),
           SizedBox(width: 10),
-          Text(
-            'Emergency / SOS',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          Expanded(
+            child: Text(
+              'Emergency / SOS',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -658,15 +656,16 @@ extension _UserHomeWidgets on _UserHomeScreenState {
       onTap: onPressed ?? () {},
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        constraints: const BoxConstraints(minHeight: 112),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           gradient: gradient,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -674,46 +673,34 @@ extension _UserHomeWidgets on _UserHomeScreenState {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.22),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: Colors.white),
+              child: Icon(icon, color: Colors.white, size: 18),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 10),
             Text(
               title,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 color: Colors.white,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w400),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _infoCard(String text) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6ECFF)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.verified_rounded, color: Color(0xFF2962FF), size: 20),
-          const SizedBox(width: 10),
-          Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-        ],
       ),
     );
   }
@@ -725,16 +712,16 @@ extension _UserHomeWidgets on _UserHomeScreenState {
     final distanceKm = _distanceKmTo(agent);
     final distanceLabel = distanceKm > 0 ? '${distanceKm.toStringAsFixed(1)} km' : 'Nearby';
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE6ECFF)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -742,18 +729,44 @@ extension _UserHomeWidgets on _UserHomeScreenState {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: const Color(0xFFEAF0FF),
+                backgroundImage: agent.profilePhotoBytes != null
+                    ? MemoryImage(agent.profilePhotoBytes!)
+                    : null,
+                child: agent.profilePhotoBytes == null
+                    ? const Icon(Icons.person, size: 18, color: Color(0xFF2962FF))
+                    : null,
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       agent.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Row(
+                    Text(
+                      agent.locationName.isNotEmpty ? agent.locationName : agent.city,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                        fontWeight: FontWeight.w400,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -767,11 +780,26 @@ extension _UserHomeWidgets on _UserHomeScreenState {
                             style: TextStyle(
                               color: Color(0xff059669),
                               fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffEAF0FF),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: const Color(0xffC7D9FF)),
+                          ),
+                          child: const Text(
+                            'Available now',
+                            style: TextStyle(
+                              color: Color(0xff2563EB),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -786,7 +814,7 @@ extension _UserHomeWidgets on _UserHomeScreenState {
                             style: const TextStyle(
                               color: Color(0xffB45309),
                               fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -795,6 +823,7 @@ extension _UserHomeWidgets on _UserHomeScreenState {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               SizedBox(
                 height: 32,
                 child: _buildAgentRequestButton(status),
@@ -804,24 +833,12 @@ extension _UserHomeWidgets on _UserHomeScreenState {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text(distanceLabel, style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500)),
-              const SizedBox(width: 10),
-              if (agent.locationName.isNotEmpty)
-                Expanded(
-                  child: Text(
-                    agent.locationName,
-                    style: const TextStyle(color: Colors.black54),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                )
-              else
-                Expanded(
-                  child: Text(
-                    agent.city,
-                    style: const TextStyle(color: Colors.black54),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+              const Icon(Icons.place_outlined, size: 14, color: Color(0xFF6B7280)),
+              const SizedBox(width: 4),
+              Text(
+                distanceLabel,
+                style: const TextStyle(color: Color(0xFF6B7280), fontWeight: FontWeight.w500, fontSize: 12),
+              ),
             ],
           ),
         ],
@@ -874,69 +891,72 @@ extension _UserHomeWidgets on _UserHomeScreenState {
   void _showLocationSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Location Settings',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xffF8FAFF),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xffE6EBF5)),
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Location Settings',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: const Color(0xffE0ECFF),
-                        borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF8FAFF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xffE6EBF5)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xffE0ECFF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.my_location,
+                          color: Color(0xff2563EB),
+                          size: 18,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.my_location,
-                        color: Color(0xff2563EB),
-                        size: 18,
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Use Current Location',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Use Current Location',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      Switch.adaptive(
+                        value: _useCurrentLocation,
+                        activeColor: const Color(0xff2563EB),
+                        onChanged: (val) async {
+                          if (val) {
+                            await _applyCurrentLocation();
+                            return;
+                          }
+                          _setCurrentLocationEnabled(false);
+                        },
                       ),
-                    ),
-                    Switch.adaptive(
-                      value: _useCurrentLocation,
-                      activeColor: const Color(0xff2563EB),
-                      onChanged: (val) async {
-                        if (val) {
-                          await _applyCurrentLocation();
-                          return;
-                        }
-                        _setCurrentLocationEnabled(false);
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (_isFetchingLocation) ...[
-                const SizedBox(height: 10),
-                const LinearProgressIndicator(),
+                if (_isFetchingLocation) ...[
+                  const SizedBox(height: 10),
+                  const LinearProgressIndicator(),
+                ],
               ],
-            ],
+            ),
           ),
         );
       },
@@ -971,6 +991,49 @@ class _MapFilterChip extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _TrustChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _TrustChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDCE6FF)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFF2563EB)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              softWrap: true,
+              maxLines: 2,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1F2937),
+                height: 1.15,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

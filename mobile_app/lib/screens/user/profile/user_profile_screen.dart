@@ -11,6 +11,7 @@ import 'language_screen.dart';
 import 'theme_screen.dart';
 import '../../../services/profile_photo_service.dart';
 import '../../../services/user_service.dart';
+import '../../../widgets/responsive_utils.dart';
 import '../../../widgets/settings_section.dart';
 import '../../../widgets/settings_tile.dart';
 import '../../../widgets/upi_card.dart';
@@ -113,8 +114,46 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return _deriveCity(address);
   }
 
+  Future<void> _confirmLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: AlertDialog(
+              title: const Text('Logout'),
+              content: const SingleChildScrollView(
+                child: Text('Are you sure you want to logout?'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Logout'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldLogout == true && mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scaleFactor = Responsive.scaleFactor(context);
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FB),
       appBar: AppBar(
@@ -124,234 +163,255 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildHeader(
-                      name: _profileName,
-                      accountType: 'User',
-                      photoFile: _photoFile,
-                      photoImage:
-                          _profilePhotoBytes != null ? MemoryImage(_profilePhotoBytes!) : null,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final pagePadding = Responsive.pagePadding(context);
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      pagePadding.left,
+                      16,
+                      pagePadding.right,
+                      20,
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context)
-                              .push(
-                                MaterialPageRoute(
-                                  builder: (_) => const EditProfileScreen(),
-                                ),
-                              )
-                              .then((updated) {
-                            _loadPhoto();
-                            if (updated == true) {
-                              _loadProfile();
-                            }
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff2563EB),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth >= 900 ? 760 : double.infinity,
                         ),
-                        child: const Text('Manage Profile'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildHeader(
+                              name: _profileName,
+                              accountType: 'User',
+                              photoFile: _photoFile,
+                              photoImage:
+                                  _profilePhotoBytes != null ? MemoryImage(_profilePhotoBytes!) : null,
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context)
+                                      .push(
+                                        MaterialPageRoute(
+                                          builder: (_) => const EditProfileScreen(),
+                                        ),
+                                      )
+                                      .then((updated) {
+                                    _loadPhoto();
+                                    if (updated == true) {
+                                      _loadProfile();
+                                    }
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xff2563EB),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  'Manage Profile',
+                                  style: TextStyle(fontSize: 14 * scaleFactor),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _sectionTitle('Quick Actions'),
+                            const SizedBox(height: 8),
+                            _buildQuickActions(
+                              actions: [
+                                _QuickAction(
+                                  icon: Icons.edit,
+                                  label: 'Edit Profile',
+                                  onTap: () {
+                                    Navigator.of(context)
+                                        .push(
+                                          MaterialPageRoute(
+                                            builder: (_) => const EditProfileScreen(),
+                                          ),
+                                        )
+                                        .then((updated) {
+                                      _loadPhoto();
+                                      if (updated == true) {
+                                        _loadProfile();
+                                      }
+                                    });
+                                  },
+                                ),
+                                _QuickAction(
+                                  icon: Icons.copy,
+                                  label: 'Copy UPI',
+                                  onTap: () async {
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    await Clipboard.setData(ClipboardData(text: _upiId));
+                                    if (!context.mounted) return;
+                                    messenger.showSnackBar(
+                                      const SnackBar(content: Text('UPI ID copied')),
+                                    );
+                                  },
+                                ),
+                                _QuickAction(
+                                  icon: Icons.share,
+                                  label: 'Share UPI',
+                                  onTap: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Share UPI coming soon')),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _sectionTitle('Profile Details'),
+                            const SizedBox(height: 8),
+                            _infoSection(
+                              title: 'Personal Info',
+                              rows: [
+                                _InfoRow('Email', _email),
+                                _InfoRow('Phone', _phone),
+                                _InfoRow('Gender', _gender),
+                                _InfoRow('Age', _age),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _infoSection(
+                              title: 'Location',
+                              rows: [
+                                _InfoRow('City', _city),
+                                _InfoRow('Address', _address),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _statusSection(
+                              title: 'Status',
+                              items: const [
+                                _StatusItem(label: 'Verified', value: false),
+                                _StatusItem(label: 'Available', value: null, nullText: 'N/A'),
+                                _StatusItem(label: 'Banned', value: false, positiveWhenTrue: false),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            UpiCard(
+                              upiId: _upiId,
+                              onCopy: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                await Clipboard.setData(ClipboardData(text: _upiId));
+                                if (!context.mounted) return;
+                                messenger.showSnackBar(
+                                  const SnackBar(content: Text('UPI ID copied')),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _sectionTitle('Settings'),
+                            const SizedBox(height: 8),
+                            SettingsSection(
+                              children: [
+                                SettingsTile(
+                                  icon: Icons.brightness_6_outlined,
+                                  title: 'Theme',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const ThemeScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 6),
+                                SettingsTile(
+                                  icon: Icons.info_outline,
+                                  title: 'About',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const AboutPlatformScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 6),
+                                SettingsTile(
+                                  icon: Icons.privacy_tip_outlined,
+                                  title: 'Privacy Policy',
+                                  onTap: () {
+                                    // TODO: Open Privacy Policy screen or webview.
+                                  },
+                                ),
+                                const SizedBox(height: 6),
+                                SettingsTile(
+                                  icon: Icons.lock_outline,
+                                  title: 'Change Password',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const ChangePasswordScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 6),
+                                SettingsTile(
+                                  icon: Icons.language,
+                                  title: 'Language',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const LanguageScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Center(
+                              child: Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                constraints: const BoxConstraints(maxWidth: 520),
+                                child: ElevatedButton.icon(
+                                  onPressed: _confirmLogout,
+                                  icon: const Icon(Icons.logout),
+                                  label: Text(
+                                    'Logout',
+                                    style: TextStyle(fontSize: 15 * scaleFactor),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    backgroundColor: Colors.redAccent,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _sectionTitle('Quick Actions'),
-                    const SizedBox(height: 8),
-                    _buildQuickActions(
-                      actions: [
-                        _QuickAction(
-                          icon: Icons.edit,
-                          label: 'Edit Profile',
-                          onTap: () {
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const EditProfileScreen(),
-                                  ),
-                                )
-                                .then((updated) {
-                              _loadPhoto();
-                              if (updated == true) {
-                                _loadProfile();
-                              }
-                            });
-                          },
-                        ),
-                        _QuickAction(
-                          icon: Icons.copy,
-                          label: 'Copy UPI',
-                          onTap: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            await Clipboard.setData(ClipboardData(text: _upiId));
-                            if (!context.mounted) return;
-                            messenger.showSnackBar(
-                              const SnackBar(content: Text('UPI ID copied')),
-                            );
-                          },
-                        ),
-                        _QuickAction(
-                          icon: Icons.share,
-                          label: 'Share UPI',
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Share UPI coming soon')),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _sectionTitle('Profile Details'),
-                    const SizedBox(height: 8),
-                    _infoSection(
-                      title: 'Personal Info',
-                      rows: [
-                        _InfoRow('Email', _email),
-                        _InfoRow('Phone', _phone),
-                        _InfoRow('Gender', _gender),
-                        _InfoRow('Age', _age),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _infoSection(
-                      title: 'Location',
-                      rows: [
-                        _InfoRow('City', _city),
-                        _InfoRow('Address', _address),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _statusSection(
-                      title: 'Status',
-                      items: const [
-                        _StatusItem(label: 'Verified', value: false),
-                        _StatusItem(label: 'Available', value: null, nullText: 'N/A'),
-                        _StatusItem(label: 'Banned', value: false, positiveWhenTrue: false),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    UpiCard(
-                      upiId: _upiId,
-                      onCopy: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        await Clipboard.setData(ClipboardData(text: _upiId));
-                        if (!context.mounted) return;
-                        messenger.showSnackBar(
-                          const SnackBar(content: Text('UPI ID copied')),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _sectionTitle('Settings'),
-                    const SizedBox(height: 8),
-                    SettingsSection(
-                      children: [
-                        SettingsTile(
-                          icon: Icons.brightness_6_outlined,
-                          title: 'Theme',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ThemeScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        SettingsTile(
-                          icon: Icons.info_outline,
-                          title: 'About',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AboutPlatformScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        SettingsTile(
-                          icon: Icons.privacy_tip_outlined,
-                          title: 'Privacy Policy',
-                          onTap: () {
-                            // TODO: Open Privacy Policy screen or webview.
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        SettingsTile(
-                          icon: Icons.lock_outline,
-                          title: 'Change Password',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ChangePasswordScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        SettingsTile(
-                          icon: Icons.language,
-                          title: 'Language',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LanguageScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  debugPrint('Logging out user (demo) and clearing session');
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                },
-                icon: const Icon(Icons.logout, size: 18, color: Color(0xffDC2626)),
-                label: const Text('Logout'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 52),
-                  foregroundColor: const Color(0xffDC2626),
-                  side: const BorderSide(color: Color(0xffFCA5A5)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -377,11 +437,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            radius: 34,
+            radius: 34 * Responsive.scaleFactor(context),
             backgroundColor: const Color(0xffE0ECFF),
             backgroundImage: imageProvider,
             child: imageProvider == null
-                ? const Icon(Icons.person, size: 34, color: Color(0xff2563EB))
+                ? Icon(
+                    Icons.person,
+                    size: 34 * Responsive.scaleFactor(context),
+                    color: const Color(0xff2563EB),
+                  )
                 : null,
           ),
           const SizedBox(width: 14),
@@ -391,17 +455,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    fontSize: 20,
+                  style: TextStyle(
+                    fontSize: Responsive.fs(context, 20),
                     fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   accountType,
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontSize: Responsive.fs(context, 13),
+                  ),
                 ),
               ],
             ),
@@ -462,8 +530,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _sectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 15,
+      style: TextStyle(
+        fontSize: Responsive.fs(context, 15),
         fontWeight: FontWeight.w700,
         color: Colors.black87,
       ),
@@ -507,19 +575,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
-                fontSize: 12,
+                fontSize: Responsive.fs(context, 12),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
+              style: TextStyle(
+                color: Colors.black54,
+                fontSize: Responsive.fs(context, 12),
+              ),
             ),
           ),
         ],
@@ -585,11 +660,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           Expanded(
             child: Text(
               item.label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
-                fontSize: 12,
+                fontSize: Responsive.fs(context, 12),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Container(

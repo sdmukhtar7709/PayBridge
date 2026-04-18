@@ -20,6 +20,7 @@ import '../../../services/profile_photo_service.dart';
 import '../../../services/user_service.dart';
 import '../../../services/location_service.dart';
 import '../../../services/local_notification_service.dart';
+import '../../../widgets/responsive_utils.dart';
 import '../../shared/nearby_map_screen.dart';
 
 part 'user_home_widgets.dart';
@@ -541,47 +542,62 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF6F9FF),
+      backgroundColor: const Color(0xffF5F6FA),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 20),
-              _buildHeroCard(),
-              const SizedBox(height: 20),
-              _buildActionRow(),
-              const SizedBox(height: 18),
-              _buildTrustRow(context),
-              const SizedBox(height: 18),
-              _buildAgents(context),
-              const SizedBox(height: 18),
-              _buildMapPreview(),
-              const SizedBox(height: 14),
-              _buildSos(),
-            ],
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final pagePadding = Responsive.pagePadding(context);
+            final maxWidth = constraints.maxWidth >= 900 ? 760.0 : double.infinity;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                pagePadding.left,
+                16,
+                pagePadding.right,
+                16,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(context),
+                      _buildTrustRow(context),
+                      const SizedBox(height: 20),
+                      _buildActionRow(),
+                      const SizedBox(height: 20),
+                      _buildAgents(context),
+                      const SizedBox(height: 20),
+                      _buildMapPreview(),
+                      const SizedBox(height: 20),
+                      _buildSos(),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: BottomNavigationBar(
           selectedItemColor: const Color(0xff2563EB),
           unselectedItemColor: const Color(0xff6B7280),
           type: BottomNavigationBarType.fixed,
           currentIndex: _currentIndex,
-          iconSize: 22,
+          iconSize: 24,
           selectedFontSize: 12,
           unselectedFontSize: 12,
           onTap: (index) {
@@ -637,6 +653,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

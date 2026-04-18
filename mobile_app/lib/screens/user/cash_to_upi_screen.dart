@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/agent_fee_calculator.dart';
 import '../../services/location_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/responsive_utils.dart';
 import 'available_agents/available_agents_screen.dart';
 import 'transactions/my_requests_screen.dart';
 
@@ -72,11 +73,27 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
         title: const Text('Cash to UPI'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final pagePadding = Responsive.pagePadding(context);
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                pagePadding.left,
+                16,
+                pagePadding.right,
+                20 +
+                    MediaQuery.of(context).padding.bottom +
+                    MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth >= 900 ? 760 : double.infinity,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               _headerSection(
                 title: 'Deposit Cash',
                 subtitle: 'Convert your cash into digital balance',
@@ -307,9 +324,13 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-            ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
           ),
-        ),
       ),
     );
   }
@@ -332,15 +353,32 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
   }
 
   Widget _amountRow(String label, int value, {bool emphasize = false}) {
+    final scaleFactor = Responsive.scaleFactor(context);
     final style = TextStyle(
-      fontSize: emphasize ? 17 : 14,
+      fontSize: (emphasize ? 17 : 14) * scaleFactor,
       fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
       color: emphasize ? const Color(0xff0F172A) : const Color(0xff334155),
     );
     return Row(
       children: [
-        Expanded(child: Text(label, style: style)),
-        Text('₹$value', style: style),
+        Expanded(
+          child: Text(
+            label,
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            '₹$value',
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+          ),
+        ),
       ],
     );
   }
@@ -361,6 +399,7 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
   }
 
   Widget _headerSection({required String title, required String subtitle}) {
+    final scaleFactor = Responsive.scaleFactor(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -373,12 +412,16 @@ class _CashToUpiScreenState extends State<CashToUpiScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 24 * scaleFactor, fontWeight: FontWeight.w700),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 6),
           Text(
             subtitle,
             style: const TextStyle(color: Colors.black54, height: 1.35),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

@@ -2,11 +2,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Flutter (Android Device)",
+      "name": "Flutter (Android Device - USB/adb reverse)",
       "request": "launch",
       "type": "dart",
       "args": [
-        "--dart-define=API_BASE_URL=http://10.172.112.209:4000"
+        "--dart-define=API_BASE_URL=http://127.0.0.1:4000"
       ]
     }
   ]

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../services/user_service.dart';
 import '../../../widgets/custom_textfield.dart';
 import '../../../services/profile_photo_service.dart';
+import '../../../widgets/responsive_utils.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -102,6 +103,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scaleFactor = Responsive.scaleFactor(context);
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FB),
       appBar: AppBar(
@@ -111,86 +113,107 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_isLoadingProfile)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12),
-                        child: LinearProgressIndicator(),
-                      ),
-                    Row(
-                      children: [
-                        InkWell(
-                          onTap: _showImagePicker,
-                          borderRadius: BorderRadius.circular(44),
-                          child: Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              CircleAvatar(
-                                radius: 44,
-                                backgroundColor: const Color(0xffe0f2fe),
-                                backgroundImage: _currentPhotoFile != null
-                                    ? FileImage(_currentPhotoFile!)
-                                    : (_currentPhotoBytes != null ? MemoryImage(_currentPhotoBytes!) : null),
-                                child: _currentPhotoFile == null && _currentPhotoBytes == null
-                                    ? const Icon(Icons.person, size: 40, color: Colors.blue)
-                                    : null,
-                              ),
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(Icons.edit, size: 16, color: Colors.blue),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Profile photo',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 6),
-                            OutlinedButton.icon(
-                              onPressed: _showImagePicker,
-                              icon: const Icon(Icons.upload_file),
-                              label: const Text('Upload new photo'),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final pagePadding = Responsive.pagePadding(context);
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(pagePadding.left, 16, pagePadding.right, 20),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth >= 900 ? 760 : double.infinity,
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_isLoadingProfile)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 12),
+                                child: LinearProgressIndicator(),
+                              ),
+                            Row(
+                              children: [
+                                InkWell(
+                                  onTap: _showImagePicker,
+                                  borderRadius: BorderRadius.circular(44),
+                                  child: Stack(
+                                    alignment: Alignment.bottomRight,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 44,
+                                        backgroundColor: const Color(0xffe0f2fe),
+                                        backgroundImage: _currentPhotoFile != null
+                                            ? FileImage(_currentPhotoFile!)
+                                            : (_currentPhotoBytes != null ? MemoryImage(_currentPhotoBytes!) : null),
+                                        child: _currentPhotoFile == null && _currentPhotoBytes == null
+                                            ? const Icon(Icons.person, size: 40, color: Colors.blue)
+                                            : null,
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.1),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(Icons.edit, size: 16, color: Colors.blue),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Profile photo',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14 * scaleFactor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      FractionallySizedBox(
+                                        widthFactor: 1,
+                                        child: OutlinedButton.icon(
+                                          onPressed: _showImagePicker,
+                                          icon: const Icon(Icons.upload_file),
+                                          label: Text(
+                                            'Upload new photo',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
                     const Text(
                       'Personal Info',
                       style: TextStyle(fontWeight: FontWeight.w700),
@@ -216,35 +239,47 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       controller: _mobileController,
                       keyboardType: TextInputType.phone,
                     ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdown(
-                            label: 'Gender',
-                            value: _selectedGender,
-                            items: const ['Male', 'Female', 'Other'],
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _selectedGender = value);
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildDropdown(
-                            label: 'Marital Status',
-                            value: _selectedMaritalStatus,
-                            items: const ['Single', 'Married', 'Other'],
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _selectedMaritalStatus = value);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                            LayoutBuilder(
+                              builder: (context, formConstraints) {
+                                final isNarrow = formConstraints.maxWidth < 420;
+                                final genderField = _buildDropdown(
+                                  label: 'Gender',
+                                  value: _selectedGender,
+                                  items: const ['Male', 'Female', 'Other'],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => _selectedGender = value);
+                                    }
+                                  },
+                                );
+                                final maritalField = _buildDropdown(
+                                  label: 'Marital Status',
+                                  value: _selectedMaritalStatus,
+                                  items: const ['Single', 'Married', 'Other'],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => _selectedMaritalStatus = value);
+                                    }
+                                  },
+                                );
+                                if (isNarrow) {
+                                  return Column(
+                                    children: [
+                                      genderField,
+                                      const SizedBox(height: 10),
+                                      maritalField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(child: genderField),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: maritalField),
+                                  ],
+                                );
+                              },
+                            ),
                     CustomTextField(
                       hint: 'Age',
                       icon: Icons.calendar_today,
@@ -272,24 +307,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       maxLines: 3,
                       textCapitalization: TextCapitalization.sentences,
                     ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _handleSave,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 52),
-                        backgroundColor: const Color(0xff2563EB),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: _isSaving ? null : _handleSave,
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 52),
+                                backgroundColor: const Color(0xff2563EB),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: Text(
+                                _isSaving ? 'Saving...' : 'Save Changes',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Text(
-                        _isSaving ? 'Saving...' : 'Save Changes',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
