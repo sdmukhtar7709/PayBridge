@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import bodyParser from "body-parser";
+import type { Request, Response } from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { env, allowedOrigins } from "./config/env.js";
@@ -44,6 +45,7 @@ import logger from "./lib/logger.js";
 
 const prisma = new PrismaClient();
 const app = express();
+const pinoHttpMiddleware = pinoHttp as unknown as (options: unknown) => express.RequestHandler;
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 const adminUiPath = path.resolve(currentDirPath, "../../../admin");
@@ -59,9 +61,9 @@ app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(
-  pinoHttp({
+  pinoHttpMiddleware({
     logger,
-    genReqId: (req, res) => {
+    genReqId: (req: Request, res: Response) => {
       const header = req.headers["x-request-id"];
       if (header && typeof header === "string") return header;
       const id = randomUUID();
@@ -69,10 +71,10 @@ app.use(
       return id;
     },
     serializers: {
-      req(req) {
+      req(req: Request & { id?: string }) {
         return { id: req.id, method: req.method, url: req.url };
       },
-      res(res) {
+      res(res: Response) {
         return { statusCode: res.statusCode };
       },
     },

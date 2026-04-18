@@ -1,9 +1,8 @@
-import { app } from "./app";
-import { env } from "./config/env";
+import { app } from "./app.js";
+import { env } from "./config/env.js";
 import prisma from "./lib/prisma.js";
 import logger from "./lib/logger.js";
 import type { Server } from "node:http";
-
 const PORT = env.port || 5000;
 const HOST = "0.0.0.0";
 const divider = "-".repeat(60);
