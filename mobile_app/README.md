@@ -8,12 +8,11 @@ This project is a starting point for a Flutter application.
 
 ## Run On Physical Android (USB Recommended)
 
-For USB debugging on a physical Android phone, this project now defaults to loopback URLs:
+For all devices, this project now defaults to the deployed backend URL:
 
-- `http://127.0.0.1:4000`
-- fallback `http://127.0.0.1:4001`
+- `https://cashio-backends.onrender.com`
 
-This requires `adb reverse` mapping from device port to your PC backend port.
+No same-network setup is required when using the deployed backend.
 
 1. Start backend on your PC (preferred port `4000`; fallback may be `4001`) and ensure it binds to `0.0.0.0`.
 2. Connect phone via USB and enable USB debugging.
@@ -31,7 +30,7 @@ If you need a specific port:
 
 ## Run On Physical Android (Same Wi-Fi)
 
-If you prefer Wi-Fi instead of USB, set `API_BASE_URL` to your PC LAN IP.
+If you need to override the backend URL for testing, set `API_BASE_URL` explicitly.
 
 1. Start backend on your PC (preferred port `4000`; fallback may be `4001`) and ensure it binds to `0.0.0.0`.
 2. Connect phone and PC to the same Wi-Fi.
@@ -52,7 +51,7 @@ If auto-detect picks the wrong IP, run:
 You can also run manually:
 
 ```powershell
-flutter run --dart-define=API_BASE_URL=http://<YOUR_PC_WIFI_IP>:<BACKEND_PORT>
+flutter run --dart-define=API_BASE_URL=https://cashio-backends.onrender.com
 ```
 
 A few resources to get you started if this is your first Flutter project:

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -371,6 +373,8 @@ class AgentService {
   static final String _transactionConfirmAgentPath = '$_apiBaseUrl/transactions/confirm-agent';
   static const String _agentTokenKey = 'agent_auth_token';
   static const String _cachedAgentProfileKey = 'cached_agent_profile';
+  static const Duration _requestTimeout = Duration(seconds: 60);
+  static const int _maxTransientRetries = 1;
 
   static Future<AgentAuthResult> registerAgent({
     required String email,
@@ -793,18 +797,49 @@ class AgentService {
     String url,
     Map<String, dynamic> payload,
   ) async {
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    );
+    for (var attempt = 0; attempt <= _maxTransientRetries; attempt++) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse(url),
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              body: jsonEncode(payload),
+            )
+            .timeout(_requestTimeout);
 
-    final body = _decodeBody(response);
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return body;
+        final body = _decodeBody(response);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return body;
+        }
+
+        throw Exception(_readError(body, 'Request failed'));
+      } on TimeoutException {
+        if (attempt < _maxTransientRetries) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        throw Exception('Request timed out. Please try again.');
+      } on SocketException {
+        if (attempt < _maxTransientRetries) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        throw Exception('Cannot reach server. Please check your internet connection and DNS settings.');
+      } on HandshakeException {
+        throw Exception('Secure connection failed. Please verify your device date/time and HTTPS connectivity.');
+      } on http.ClientException {
+        if (attempt < _maxTransientRetries) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        throw Exception('Network client error. Please try again.');
+      }
     }
 
-    throw Exception(_readError(body, 'Request failed'));
+    throw Exception('Request failed');
   }
 
   static Map<String, dynamic> _decodeBody(http.Response response) {

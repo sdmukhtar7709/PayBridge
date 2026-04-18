@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'config/api_config.dart';
 import 'screens/agent/agent_home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/user/available_agents/available_agents_screen.dart';
@@ -9,6 +10,8 @@ import 'services/local_notification_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalNotificationService.instance.init();
+  final baseUrl = ApiConfig.baseUrl;
+  print('API URL: $baseUrl');
   runApp(const MyApp());
 }
 

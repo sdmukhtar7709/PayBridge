@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
         lower.contains('no route to host');
 
     if (looksLikeNetworkIssue) {
-      return 'Cannot reach server. If using USB, run adb reverse for the backend port (4000 or 4001) and use API_BASE_URL=http://127.0.0.1:<PORT>. If using Wi-Fi, keep phone and PC on same network and set API_BASE_URL to your PC LAN IP. Current API_BASE_URL: ${ApiConfig.baseUrl}';
+      return 'Cannot reach server. Please check your internet connection and try again. Current API_BASE_URL: ${ApiConfig.baseUrl}';
     }
 
     return message;

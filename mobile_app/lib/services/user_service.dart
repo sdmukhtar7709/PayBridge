@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,6 +69,8 @@ class UserService {
   static final String _apiBaseUrl = ApiConfig.baseUrl;
   static final String _profilePath = '$_apiBaseUrl/user/profile';
   static const String _cachedProfileKey = 'cached_user_profile';
+  static const Duration _requestTimeout = Duration(seconds: 60);
+  static const int _maxTransientRetries = 1;
 
   Future<User> getProfile() async {
     final token = await AuthService.getToken();
@@ -74,12 +78,14 @@ class UserService {
       throw Exception('You are not logged in');
     }
 
-    final response = await http.get(
-      Uri.parse(_profilePath),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+    final response = await _sendRequest(
+      () => http.get(
+        Uri.parse(_profilePath),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ),
     );
 
     final body = _decodeBody(response);
@@ -98,13 +104,15 @@ class UserService {
       throw Exception('You are not logged in');
     }
 
-    final response = await http.put(
-      Uri.parse(_profilePath),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(data),
+    final response = await _sendRequest(
+      () => http.put(
+        Uri.parse(_profilePath),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      ),
     );
 
     final body = _decodeBody(response);
@@ -132,6 +140,36 @@ class UserService {
   Future<void> _cacheProfile(User user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_cachedProfileKey, jsonEncode(user.toJson()));
+  }
+
+  Future<http.Response> _sendRequest(Future<http.Response> Function() request) async {
+    for (var attempt = 0; attempt <= _maxTransientRetries; attempt++) {
+      try {
+        return await request().timeout(_requestTimeout);
+      } on TimeoutException {
+        if (attempt < _maxTransientRetries) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        throw Exception('Request timed out. Please try again.');
+      } on SocketException {
+        if (attempt < _maxTransientRetries) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        throw Exception('Cannot reach server. Please check your internet connection and DNS settings.');
+      } on HandshakeException {
+        throw Exception('Secure connection failed. Please verify your device date/time and HTTPS connectivity.');
+      } on http.ClientException {
+        if (attempt < _maxTransientRetries) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        throw Exception('Network client error. Please try again.');
+      }
+    }
+
+    throw Exception('Network request failed.');
   }
 
   Map<String, dynamic> _decodeBody(http.Response response) {
