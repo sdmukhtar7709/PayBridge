@@ -100,11 +100,13 @@
         display: flex;
         justify-content: center;
         flex-direction: column;
+        z-index: 3;
     }
 
     .credentials-panel.signin {
         left: 0;
         padding: 0 40px;
+        pointer-events: auto;
     }
 
     .credentials-panel.signin .slide-element {
@@ -138,6 +140,10 @@
         opacity: 0;
     }
 
+    .auth-wrapper.toggled .credentials-panel.signin {
+        pointer-events: none;
+    }
+
     .auth-wrapper.toggled .credentials-panel.signin .slide-element:nth-child(1) {
         transition-delay: 0s;
     }
@@ -161,6 +167,7 @@
     .credentials-panel.signup {
         right: 0;
         padding: 0 60px;
+        pointer-events: none;
     }
 
     .credentials-panel.signup .slide-element {
@@ -202,6 +209,10 @@
         transform: translateX(0%);
         opacity: 1;
         filter: blur(0px);
+    }
+
+    .auth-wrapper.toggled .credentials-panel.signup {
+        pointer-events: auto;
     }
 
     .auth-wrapper.toggled .credentials-panel.signup .slide-element:nth-child(1) {
@@ -363,6 +374,8 @@
         display: flex;
         justify-content: center;
         flex-direction: column;
+        z-index: 2;
+        pointer-events: none;
     }
 
     .welcome-section.signin {
@@ -457,6 +470,8 @@
         transform-origin: bottom right;
         transition: 1.5s ease;
         transition-delay: 1.6s;
+        z-index: 0;
+        pointer-events: none;
     }
 
     .auth-wrapper.toggled .background-shape {
@@ -476,6 +491,8 @@
         transform-origin: bottom left;
         transition: 1.5s ease;
         transition-delay: .5s;
+        z-index: 1;
+        pointer-events: none;
     }
 
     .auth-wrapper.toggled .secondary-shape {
