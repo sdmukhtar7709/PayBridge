@@ -551,7 +551,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
                 pagePadding.left,
-                16,
+                8,
                 pagePadding.right,
                 16,
               ),

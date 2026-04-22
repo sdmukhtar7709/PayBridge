@@ -5,118 +5,138 @@ extension _UserHomeWidgets on _UserHomeScreenState {
   // Header
   Widget _buildHeader(BuildContext context) {
     final scaleFactor = Responsive.scaleFactor(context);
-    final avatarDiameter = (44 * scaleFactor).clamp(40.0, 48.0);
+    final avatarDiameter = (40 * scaleFactor).clamp(36.0, 44.0);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
-      child: Row(
-        children: [
-        GestureDetector(
-          onTap: () {
-            Navigator.of(context)
-                .push(
-                  MaterialPageRoute(builder: (_) => const UserProfileScreen()),
-                )
-                .then((_) {
-              _loadPhoto();
-              _loadProfileName();
-            });
-          },
-          child: CircleAvatar(
-            radius: avatarDiameter / 2,
-            backgroundColor: const Color(0xFF2962FF),
-            backgroundImage: _profilePhotoBytes != null
-                ? MemoryImage(_profilePhotoBytes!)
-                : (_photoFile != null ? FileImage(_photoFile!) : null),
-            child: _profilePhotoBytes == null && _photoFile == null
-                ? const Icon(Icons.person, color: Colors.white)
-                : null,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: InkWell(
-            onTap: _showLocationSheet,
-            borderRadius: BorderRadius.circular(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hi $_profileFirstName',
-                  style: TextStyle(
-                    fontSize: 20 * scaleFactor,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1F2937),
-                    letterSpacing: 0.1,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: Color(0xff2563EB),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _cityLabel.trim().isEmpty ? 'Set your location' : _cityLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14 * scaleFactor,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        Stack(
-          children: [
-            IconButton(
-              onPressed: _openNotificationCenter,
-              icon: const Icon(Icons.notifications_outlined, size: 24),
-            ),
-            StreamBuilder<int>(
-              stream: LocalNotificationService.instance.onBadgeCount,
-              initialData: LocalNotificationService.instance.badgeCount,
-              builder: (context, snapshot) {
-                final count = snapshot.data ?? 0;
-                if (count <= 0) return const SizedBox.shrink();
-                return Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(minWidth: 18),
-                    child: Text(
-                      count > 99 ? '99+' : '$count',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                );
-              },
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE4E9F2)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        ],
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context)
+                    .push(
+                      MaterialPageRoute(builder: (_) => const UserProfileScreen()),
+                    )
+                    .then((_) {
+                  _loadPhoto();
+                  _loadProfileName();
+                });
+              },
+              child: CircleAvatar(
+                radius: avatarDiameter / 2,
+                backgroundColor: const Color(0xFF2962FF),
+                backgroundImage: _profilePhotoBytes != null
+                    ? MemoryImage(_profilePhotoBytes!)
+                    : (_photoFile != null ? FileImage(_photoFile!) : null),
+                child: _profilePhotoBytes == null && _photoFile == null
+                    ? const Icon(Icons.person, color: Colors.white, size: 20)
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: InkWell(
+                onTap: _showLocationSheet,
+                borderRadius: BorderRadius.circular(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Hi $_profileFirstName',
+                      style: TextStyle(
+                        fontSize: 17 * scaleFactor,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1F2937),
+                        height: 1.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: Color(0xff2563EB),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _cityLabel.trim().isEmpty ? 'Set your location' : _cityLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12.5 * scaleFactor,
+                              height: 1.15,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Stack(
+              children: [
+                IconButton(
+                  constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  onPressed: _openNotificationCenter,
+                  icon: const Icon(Icons.notifications_outlined, size: 22),
+                ),
+                StreamBuilder<int>(
+                  stream: LocalNotificationService.instance.onBadgeCount,
+                  initialData: LocalNotificationService.instance.badgeCount,
+                  builder: (context, snapshot) {
+                    final count = snapshot.data ?? 0;
+                    if (count <= 0) return const SizedBox.shrink();
+                    return Positioned(
+                      right: 0,
+                      top: 1,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 16),
+                        child: Text(
+                          count > 99 ? '99+' : '$count',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

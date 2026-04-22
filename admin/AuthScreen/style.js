@@ -10,8 +10,15 @@ const showRegister = document.getElementById('showRegister');
 const showLogin = document.getElementById('showLogin');
 
 function normalizeApiBase(url) {
+    const trimmed = (url || '').trim();
+    if (trimmed) {
+        return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+    }
+
+    const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
+    const originSafe = origin && origin !== 'null' ? origin : '';
     const fallback = 'http://localhost:4000';
-    const value = (url || '').trim() || fallback;
+    const value = originSafe || fallback;
     return value.endsWith('/') ? value.slice(0, -1) : value;
 }
 

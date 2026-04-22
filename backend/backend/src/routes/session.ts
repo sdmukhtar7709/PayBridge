@@ -31,7 +31,8 @@ router.post("/login-with-refresh", async (req, res, next) => {
         });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       return res
         .status(401)
