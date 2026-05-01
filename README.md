@@ -74,8 +74,8 @@ User Dashboard | Login | Available Agents
 
 <div align="center">
   <img src="./screenshots/agenthome.jpeg" width="30%" />
-  <img src="./screenshots/agentprofile.jpeg" width="30%" />
-  <img src="./screenshots/agentsidetransactionhistorylist.jpeg" width="30%" />
+  <img src="./screenshots/agentprofileeditpage.jpeg" width="30%" />
+  <img src="./screenshots/agnetsidetrasactionhistorylist.jpeg" width="30%" />
 </div>
 
 <p align="center">
