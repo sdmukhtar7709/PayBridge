@@ -70,12 +70,12 @@ User Dashboard | Login | Available Agents
 
 ---
 
-### 🧑‍💼 Agent Experience
+### 🧑‍💼 Agent and user Experience
 
 <div align="center">
   <img src="./screenshots/agenthome.jpeg" width="30%" />
   <img src="./screenshots/agentprofileeditpage.jpeg" width="30%" />
-  <img src="./screenshots/agnetsidetrasactionhistorylist.jpeg" width="30%" />
+  <img src="./screenshots/trasactionrecipt1.jpeg" width="30%" />
 </div>
 
 <p align="center">
