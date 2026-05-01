@@ -70,12 +70,12 @@ User Dashboard | Login | Available Agents
 
 ---
 
-### 🧑‍💼 Agent and user Experience
+### 🧑‍💼 Agent Experience
 
 <div align="center">
   <img src="./screenshots/agenthome.jpeg" width="30%" />
   <img src="./screenshots/agentprofileeditpage.jpeg" width="30%" />
-  <img src="./screenshots/trasactionrecipt1.jpeg" width="30%" />
+  <img src="./screenshots/agnetsidetrasactionhistorylist.jpeg" width="30%" />
 </div>
 
 <p align="center">
@@ -84,12 +84,12 @@ Agent Dashboard | Profile | Transaction History
 
 ---
 
-### 🛠️ Admin Panel
+### 🛠️ agent side and user side 
 
 <div align="center">
   <img src="./screenshots/admin-agentmanagment.jpeg" width="30%" />
   <img src="./screenshots/agnetsidetrasactionhistorylist.jpeg" width="30%" />
-  <img src="./screenshots/mapdirectionusertoagent.jpeg" width="30%" />
+  <img src="./screenshots/trasactionrecipt1.jpeg" width="30%" />
 </div>
 
 <p align="center">
