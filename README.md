@@ -27,20 +27,41 @@ Many users struggle when:
 
 - 👤 Separate User & Agent roles  
 - 🧑‍💼 Verified Agent System  
-- 📍 Map-based agent discovery  
+- 📍 Map-based agent discovery (Google Maps integration)  
 - 💬 Direct interaction system  
 - 📊 Transaction history tracking  
 - 🔔 Notifications system  
-- 🔐 Secure authentication & backend  
+- 🔐 Secure authentication (JWT + bcrypt)  
+- 🔢 OTP-based transaction verification  
+- ⭐ Agent rating system  
+- 🛠️ Admin control (approve / ban agents)  
 
 ---
 
 ## 🛠️ Tech Stack
 
-- Backend: Node.js, Express, TypeScript  
-- Database: PostgreSQL + Prisma  
-- Mobile App: Flutter  
-- Admin Panel: HTML, CSS, JavaScript  
+### Backend
+- Node.js  
+- Express.js  
+- TypeScript  
+- Prisma ORM  
+
+### Database
+- PostgreSQL  
+
+### Mobile App
+- Flutter  
+
+### Admin Panel
+- HTML, CSS, JavaScript  
+
+### Testing
+- Vitest  
+- Supertest  
+
+### External Services
+- Google Maps API  
+- Nodemailer  
 
 ---
 
@@ -49,8 +70,23 @@ Many users struggle when:
 1. User logs into the system  
 2. Searches for nearby agents  
 3. Selects a verified agent  
-4. Connects and resolves money conversion  
-5. Tracks transaction history  
+4. Sends request for money conversion  
+5. OTP verification ensures secure transaction  
+6. User and agent complete the exchange  
+7. Transaction history is stored  
+
+---
+
+## 📁 Project Structure
+
+```
+PayBridge/
+├── backend/backend/
+├── mobile_app/
+├── admin/
+├── screenshots/
+└── README.md
+```
 
 ---
 
@@ -84,7 +120,7 @@ Agent Dashboard | Profile | Transaction History
 
 ---
 
-### 🛠️ agent side and user side 
+### 🔄 User & Agent Interaction
 
 <div align="center">
   <img src="./screenshots/mapdirectionusertoagent.jpeg" width="30%" />
@@ -93,12 +129,12 @@ Agent Dashboard | Profile | Transaction History
 </div>
 
 <p align="center">
-Admin Management | Transactions | Notifications
+Map Navigation | Agent Location | Transaction Receipt
 </p>
 
 ---
 
-### 🖥️ Admin Dashboard (Full View)
+### 🖥️ Admin Dashboard
 
 <div align="center">
   <img src="./screenshots/admin-agentmanagment.jpeg" width="90%" />
@@ -108,23 +144,55 @@ Admin Management | Transactions | Notifications
 Complete Admin Dashboard Overview
 </p>
 
+---
 
+## 🔌 API Endpoints
 
-## 🔐 Security
+### Health
+```
+GET /health
+```
 
-- Verified agent onboarding  
-- Authentication & authorization  
-- Secure APIs  
-- Controlled communication  
+### Auth
+```
+POST /auth/register
+POST /auth/login
+```
+
+### Transactions
+```
+Create request
+Match agents
+Verify OTP
+```
+
+### Admin
+```
+Approve / Ban agents
+```
 
 ---
 
-## 📈 Future Improvements
+## 🔐 Security
 
-- 🤖 AI-based agent matching  
-- 🌐 Multi-country support  
-- 📱 Improved mobile UI  
-- 🔍 Fraud detection system  
+- JWT authentication  
+- OTP verification  
+- Role-based access  
+- Secure APIs  
+
+---
+
+## ⚙️ Environment Variables
+
+```
+PORT=4000
+DATABASE_URL=your_db_url
+JWT_SECRET=your_secret
+JWT_EXPIRY=expiry
+NODE_ENV=development
+GOOGLE_MAPS_API_KEY=your_key
+ADMIN_REGISTRATION_CODE=your_code
+```
 
 ---
 
@@ -132,5 +200,46 @@ Complete Admin Dashboard Overview
 
 ```bash
 cd backend/backend
+npm install
 npm run setup
 npm run dev
+```
+
+Backend runs at:
+```
+http://localhost:4000
+```
+
+---
+
+## 📊 Status
+
+🚧 Work in progress  
+✔ Core features working  
+
+---
+
+## 📈 Future Improvements
+
+- AI agent matching  
+- Fraud detection  
+- Multi-country support  
+- Better UI  
+
+---
+
+## 👨‍💻 Author
+
+Mukhtar Sayyed  
+
+---
+
+## ⭐ Contribution
+
+Open for contributions  
+
+---
+
+## 📄 License
+
+MIT License
