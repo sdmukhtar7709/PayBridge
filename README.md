@@ -73,9 +73,9 @@ User Dashboard | Login | Available Agents
 ### 🧑‍💼 Agent Experience
 
 <div align="center">
-  <img src="./screenshots/agenthome.png" width="30%" />
-  <img src="./screenshots/agentprofile.png" width="30%" />
-  <img src="./screenshots/agentsidetransactionhistorylist.png" width="30%" />
+  <img src="./screenshots/agenthome.jpeg" width="30%" />
+  <img src="./screenshots/agentprofile.jpeg" width="30%" />
+  <img src="./screenshots/agentsidetransactionhistorylist.jpeg" width="30%" />
 </div>
 
 <p align="center">
@@ -87,9 +87,9 @@ Agent Dashboard | Profile | Transaction History
 ### 🛠️ Admin Panel
 
 <div align="center">
-  <img src="./screenshots/admin-agentmanagment.png" width="30%" />
-  <img src="./screenshots/transactionlist.png" width="30%" />
-  <img src="./screenshots/notificationagentside.png" width="30%" />
+  <img src="./screenshots/admin-agentmanagment.jpeg" width="30%" />
+  <img src="./screenshots/transactionlist.jpeg" width="30%" />
+  <img src="./screenshots/notificationagentside.jpeg" width="30%" />
 </div>
 
 <p align="center">
