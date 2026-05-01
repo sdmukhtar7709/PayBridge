@@ -88,8 +88,8 @@ Agent Dashboard | Profile | Transaction History
 
 <div align="center">
   <img src="./screenshots/admin-agentmanagment.jpeg" width="30%" />
-  <img src="./screenshots/transactionlist.jpeg" width="30%" />
-  <img src="./screenshots/notificationagentside.jpeg" width="30%" />
+  <img src="./screenshots/agnetsidetrasactionhistorylist.jpeg" width="30%" />
+  <img src="./screenshots/mapdirectionusertoagent.jpeg" width="30%" />
 </div>
 
 <p align="center">
