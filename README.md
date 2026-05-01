@@ -59,9 +59,9 @@ Many users struggle when:
 ### 👤 User Experience
 
 <div align="center">
-  <img src="./screenshots/userhome.png" width="30%" />
-  <img src="./screenshots/userlogin.png" width="30%" />
-  <img src="./screenshots/useravailableagentinfo.png" width="30%" />
+  <img src="./screenshots/userhome.jpeg" width="30%" />
+  <img src="./screenshots/userlogin.jpeg" width="30%" />
+  <img src="./screenshots/useravailableagentinfo.jpeg" width="30%" />
 </div>
 
 <p align="center">
