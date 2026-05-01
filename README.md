@@ -98,6 +98,18 @@ Admin Management | Transactions | Notifications
 
 ---
 
+### 🖥️ Admin Dashboard (Full View)
+
+<div align="center">
+  <img src="./screenshots/admin-agentmanagment.jpeg" width="90%" />
+</div>
+
+<p align="center">
+Complete Admin Dashboard Overview
+</p>
+
+
+
 ## 🔐 Security
 
 - Verified agent onboarding  
