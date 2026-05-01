@@ -61,7 +61,7 @@ Many users struggle when:
 <div align="center">
   <img src="./screenshots/userhome.jpeg" width="30%" />
   <img src="./screenshots/userlogin.jpeg" width="30%" />
-  <img src="./screenshots/useravailableagentinfo.jpeg" width="30%" />
+  <img src="./screenshots/useravaibleagentinfo.jpeg" width="30%" />
 </div>
 
 <p align="center">
