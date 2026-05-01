@@ -59,7 +59,7 @@ Many users struggle when:
 ### 👤 User Experience
 
 <div align="center">
-  <img src="./screenshots/userhome.jpeg" width="30%" />
+  <img src="./screenshots/userhomescreen.jpeg" width="30%" />
   <img src="./screenshots/userlogin.jpeg" width="30%" />
   <img src="./screenshots/useravaibleagentinfo.jpeg" width="30%" />
 </div>
@@ -88,7 +88,7 @@ Agent Dashboard | Profile | Transaction History
 
 <div align="center">
   <img src="./screenshots/mapdirectionusertoagent.jpeg" width="30%" />
-  <img src="./screenshots/agnetsidetrasactionhistorylist.jpeg" width="30%" />
+  <img src="./screenshots/mapmarkers.jpeg" width="30%" />
   <img src="./screenshots/trasactionrecipt1.jpeg" width="30%" />
 </div>
 
