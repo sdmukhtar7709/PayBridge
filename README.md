@@ -1,57 +1,62 @@
 # PayBridge 💸🤝
 
 ## 📌 About the Project
-PayBridge is a platform that connects users with verified agents to solve money conversion problems securely.
+PayBridge is a full-stack platform designed to connect users with nearby verified agents to solve real-world money conversion problems.
 
-⚠️ This platform does NOT handle payments directly.  
-It acts as an intermediary between users and agents.
+Unlike traditional payment apps, PayBridge does NOT process payments directly.  
+Instead, it acts as a **secure intermediary bridge** between users and agents.
+
+This makes transactions:
+- More flexible  
+- More accessible  
+- Less dependent on digital-only systems  
 
 ---
 
-## 🎯 Problem Statement
-Users often face issues in:
-- Currency conversion  
-- Finding trusted agents  
-- Secure financial help  
+## 🌍 Real-World Use Case
+Many users struggle when:
+- They need cash but only have UPI  
+- They need digital money but only have cash  
+- They cannot find trusted agents nearby  
 
-PayBridge solves this by connecting users with verified agents in a safe and simple way.
+👉 PayBridge solves this by connecting them with **verified agents**.
 
 ---
 
 ## 🚀 Key Features
 
-- 👤 User & Agent Authentication  
+- 👤 Separate User & Agent roles  
 - 🧑‍💼 Verified Agent System  
 - 📍 Map-based agent discovery  
-- 💬 User-Agent interaction  
-- 📊 Transaction tracking  
-- 🔔 Notification system  
-- 🔐 Secure backend  
+- 💬 Direct interaction system  
+- 📊 Transaction history tracking  
+- 🔔 Notifications system  
+- 🔐 Secure authentication & backend  
 
 ---
 
 ## 🛠️ Tech Stack
 
-- Backend: Node.js, TypeScript, Express  
-- Database: PostgreSQL  
-- Mobile: Flutter  
+- Backend: Node.js, Express, TypeScript  
+- Database: PostgreSQL + Prisma  
+- Mobile App: Flutter  
 - Admin Panel: HTML, CSS, JavaScript  
 
 ---
 
 ## ⚙️ How It Works
 
-1. User logs in  
-2. Finds available agents  
-3. Connects with verified agent  
-4. Solves money conversion issue  
-5. Tracks history  
+1. User logs into the system  
+2. Searches for nearby agents  
+3. Selects a verified agent  
+4. Connects and resolves money conversion  
+5. Tracks transaction history  
 
 ---
 
 ## 📸 Screenshots
 
-### 👤 User Side
+### 👤 User Experience
 
 <div align="center">
   <img src="./screenshots/userhome.png" width="30%" />
@@ -60,12 +65,12 @@ PayBridge solves this by connecting users with verified agents in a safe and sim
 </div>
 
 <p align="center">
-User Home | Login Page | Available Agents
+User Dashboard | Login | Available Agents
 </p>
 
 ---
 
-### 🧑‍💼 Agent Side
+### 🧑‍💼 Agent Experience
 
 <div align="center">
   <img src="./screenshots/agenthome.png" width="30%" />
@@ -95,19 +100,19 @@ Admin Management | Transactions | Notifications
 
 ## 🔐 Security
 
-- Verified agents  
+- Verified agent onboarding  
 - Authentication & authorization  
 - Secure APIs  
-- Controlled access  
+- Controlled communication  
 
 ---
 
 ## 📈 Future Improvements
 
-- 🤖 AI-based agent recommendation  
+- 🤖 AI-based agent matching  
 - 🌐 Multi-country support  
-- 📱 Mobile optimization  
-- 🔍 Fraud detection  
+- 📱 Improved mobile UI  
+- 🔍 Fraud detection system  
 
 ---
 
