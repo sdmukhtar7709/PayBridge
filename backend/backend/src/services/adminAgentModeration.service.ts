@@ -117,7 +117,9 @@ export async function listAdminUsers() {
 
   return users.map((user) => {
     const fullName = buildFullName(user.firstName, user.lastName) || user.name || "Unknown User";
-    const locationParts = [user.address, user.city].filter(Boolean).map((value) => value.trim());
+    const locationParts = [user.address, user.city]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .map((value) => value.trim());
     const location = locationParts.length ? locationParts.join(", ") : "-";
 
     return {
