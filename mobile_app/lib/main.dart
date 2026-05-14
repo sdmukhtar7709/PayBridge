@@ -4,8 +4,11 @@ import 'screens/agent/agent_home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/user/available_agents/available_agents_screen.dart';
 import 'screens/user/transactions/my_requests_screen.dart';
+import 'screens/user/home/user_home_screen.dart';
 import 'services/available_agents_context_store.dart';
 import 'services/local_notification_service.dart';
+import 'services/auth_service.dart';
+import 'services/agent_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,12 +111,36 @@ class _AppStartScreenState extends State<AppStartScreen> {
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    // Check for agent token first
+    final agentToken = await AgentService.getToken();
+    if (agentToken != null && agentToken.isNotEmpty) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const AgentHomeScreen()),
       );
-    });
+      return;
+    }
+
+    // Check for user token
+    final userToken = await AuthService.getToken();
+    if (userToken != null && userToken.isNotEmpty) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const UserHomeScreen()),
+      );
+      return;
+    }
+
+    // No tokens found, go to login
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override

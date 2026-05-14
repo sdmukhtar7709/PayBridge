@@ -20,11 +20,8 @@ class ApiConfig {
       normalized = normalized.substring(0, normalized.length - 1);
     }
 
-    // Force HTTPS for internet-facing deployments.
-    if (normalized.startsWith('http://')) {
-      normalized = 'https://${normalized.substring('http://'.length)}';
-    }
-
+    // Preserve the exact scheme the user provided, especially for local development.
+    // Use explicit http:// or https:// values as-is.
     return normalized;
   }
 }
