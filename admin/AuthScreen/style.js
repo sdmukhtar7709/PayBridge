@@ -1,4 +1,3 @@
-const apiBaseInput = document.getElementById('apiBaseInput');
 const authWrapper = document.querySelector('.auth-wrapper');
 const loginForm = document.getElementById('loginForm');
 const loginSubmit = document.getElementById('loginSubmit');
@@ -46,11 +45,7 @@ function setStatus(target, message, type) {
 }
 
 async function postJson(path, body) {
-    const savedApiBase = localStorage.getItem('cashio_admin_api_base');
-    const apiBase = normalizeApiBase(apiBaseInput ? apiBaseInput.value : savedApiBase);
-    if (apiBaseInput) {
-        apiBaseInput.value = apiBase;
-    }
+    const apiBase = normalizeApiBase(window.location && window.location.origin);
     localStorage.setItem('cashio_admin_api_base', apiBase);
 
     const response = await fetch(`${apiBase}${path}`, {
@@ -204,9 +199,7 @@ if (registerForm) {
     });
 }
 
-const savedApiBase = localStorage.getItem('cashio_admin_api_base');
-if (apiBaseInput) {
-    apiBaseInput.value = normalizeApiBase(savedApiBase || apiBaseInput.value);
-} else if (savedApiBase) {
-    localStorage.setItem('cashio_admin_api_base', normalizeApiBase(savedApiBase));
-}
+localStorage.setItem(
+    'cashio_admin_api_base',
+    normalizeApiBase(window.location && window.location.origin)
+);
