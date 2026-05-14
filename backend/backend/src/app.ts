@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { env, allowedOrigins } from "./config/env.js";
 import { PrismaClient } from "@prisma/client";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import YAML from "yaml";
 import pinoHttp from "pino-http";
 import { auditLogger } from "./middleware/auditLogger.js";
@@ -48,7 +48,9 @@ const app = express();
 const pinoHttpMiddleware = pinoHttp as unknown as (options: unknown) => express.RequestHandler;
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
-const adminUiPath = path.resolve(currentDirPath, "../../../admin");
+const localAdminUiPath = path.resolve(currentDirPath, "../admin");
+const repoAdminUiPath = path.resolve(currentDirPath, "../../../admin");
+const adminUiPath = existsSync(localAdminUiPath) ? localAdminUiPath : repoAdminUiPath;
 
 const allowAnyOrigin =
   env.nodeEnv === "development" ||

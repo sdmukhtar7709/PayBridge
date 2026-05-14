@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASHLYT Admin Auth</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+    <div class="auth-wrapper">
+        <div class="background-shape"></div>
+        <div class="secondary-shape"></div>
+        <div class="credentials-panel signin">
+            <h2 class="slide-element">Admin Login</h2>
+            <form id="loginForm" action="#">
+                <div class="field-wrapper slide-element">
+                    <input id="loginEmail" type="email" required>
+                    <label for="loginEmail">Email</label>
+                    <i class="fa-solid fa-user"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <input id="loginPassword" type="password" required minlength="8">
+                    <label for="loginPassword">Password</label>
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <button id="loginSubmit" class="submit-button" type="submit">Login</button>
+                </div>
+
+                <p class="switch-link slide-element">
+                    Need admin access?
+                    <a href="#" id="showRegister">Create admin account</a>
+                </p>
+
+                <p id="loginStatus" class="form-status slide-element" aria-live="polite"></p>
+            </form>
+        </div>
+
+        <div class="credentials-panel signup">
+            <h2 class="slide-element">Admin Register</h2>
+            <form id="registerForm" action="#">
+                <div class="field-wrapper slide-element">
+                    <input id="registerName" type="text" required>
+                    <label for="registerName">Full Name</label>
+                    <i class="fa-solid fa-id-card"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <input id="registerEmail" type="email" required>
+                    <label for="registerEmail">Email</label>
+                    <i class="fa-solid fa-envelope"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <input id="registerPassword" type="password" required minlength="8">
+                    <label for="registerPassword">Password</label>
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <input id="registerCode" type="text" required minlength="4">
+                    <label for="registerCode">Access Code</label>
+                    <i class="fa-solid fa-key"></i>
+                </div>
+
+                <div class="field-wrapper slide-element">
+                    <button id="registerSubmit" class="submit-button" type="submit">Register Admin</button>
+                </div>
+
+                <p class="switch-link slide-element">
+                    Already have account?
+                    <a href="#" id="showLogin">Back to login</a>
+                </p>
+
+                <p id="registerStatus" class="form-status slide-element" aria-live="polite"></p>
+            </form>
+        </div>
+
+        <div class="welcome-section signin">
+            <h2 class="slide-element">WELCOME BACK!</h2>
+        </div>
+
+        <div class="welcome-section signup">
+            <h2 class="slide-element">CREATE ADMIN</h2>
+            <p class="slide-element">Create an admin account with your secure access code.</p>
+        </div>
+
+    </div>
+    <div class="footer">
+        <p>Cashlyt admin access screen</p>
+    </div>
+
+
+    <script src="style.js"></script>
+</body>
+
+</html>
