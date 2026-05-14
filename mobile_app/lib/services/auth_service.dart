@@ -73,6 +73,7 @@ class AuthService {
   static Future<Map<String, dynamic>> _post(String url, Map<String, dynamic> payload) async {
     for (var attempt = 0; attempt <= _maxTransientRetries; attempt++) {
       try {
+        await _verifyHostReachable(url);
         final response = await http
             .post(
               Uri.parse(url),
@@ -94,20 +95,24 @@ class AuthService {
           continue;
         }
         throw AuthException('Request timed out. Please try again.');
-      } on SocketException {
+      } on SocketException catch (error) {
         if (attempt < _maxTransientRetries) {
           await Future<void>.delayed(const Duration(seconds: 1));
           continue;
         }
-        throw AuthException('Cannot reach server. Please check your internet connection and DNS settings.');
-      } on HandshakeException {
-        throw AuthException('Secure connection failed. Please verify your device date/time and HTTPS connectivity.');
-      } on http.ClientException {
+        throw AuthException(
+          'Cannot reach server at $url. Check your internet connection and DNS settings. Details: ${error.message}',
+        );
+      } on HandshakeException catch (error) {
+        throw AuthException(
+          'Secure connection failed for $url. Verify your device date/time and HTTPS connectivity. Details: ${error.message}',
+        );
+      } on http.ClientException catch (error) {
         if (attempt < _maxTransientRetries) {
           await Future<void>.delayed(const Duration(seconds: 1));
           continue;
         }
-        throw AuthException('Network client error. Please try again.');
+        throw AuthException('Network client error for $url. Details: ${error.message}');
       }
     }
 
@@ -130,6 +135,22 @@ class AuthService {
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
+  }
+
+  static Future<void> _verifyHostReachable(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (uri.host.isEmpty) return;
+      await InternetAddress.lookup(uri.host).timeout(const Duration(seconds: 5));
+    } on SocketException catch (error) {
+      throw AuthException(
+        'Cannot resolve host "${Uri.parse(url).host}". Check DNS or internet connectivity. Details: ${error.message}',
+      );
+    } on TimeoutException {
+      throw AuthException(
+        'DNS lookup timed out for "${Uri.parse(url).host}". Check your network connection.',
+      );
+    }
   }
 }
 

@@ -787,6 +787,22 @@ class AgentService {
     return prefs.getString(_agentTokenKey);
   }
 
+  static Future<void> _verifyHostReachable(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (uri.host.isEmpty) return;
+      await InternetAddress.lookup(uri.host).timeout(const Duration(seconds: 5));
+    } on SocketException catch (error) {
+      throw Exception(
+        'Cannot resolve host "${Uri.parse(url).host}". Check DNS or internet connectivity. Details: ${error.message}',
+      );
+    } on TimeoutException {
+      throw Exception(
+        'DNS lookup timed out for "${Uri.parse(url).host}". Check your network connection.',
+      );
+    }
+  }
+
   static Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_agentTokenKey);
@@ -799,6 +815,7 @@ class AgentService {
   ) async {
     for (var attempt = 0; attempt <= _maxTransientRetries; attempt++) {
       try {
+        await _verifyHostReachable(url);
         final response = await http
             .post(
               Uri.parse(url),
@@ -822,20 +839,24 @@ class AgentService {
           continue;
         }
         throw Exception('Request timed out. Please try again.');
-      } on SocketException {
+      } on SocketException catch (error) {
         if (attempt < _maxTransientRetries) {
           await Future<void>.delayed(const Duration(seconds: 1));
           continue;
         }
-        throw Exception('Cannot reach server. Please check your internet connection and DNS settings.');
-      } on HandshakeException {
-        throw Exception('Secure connection failed. Please verify your device date/time and HTTPS connectivity.');
-      } on http.ClientException {
+        throw Exception(
+          'Cannot reach server at $url. Check your internet connection and DNS settings. Details: ${error.message}',
+        );
+      } on HandshakeException catch (error) {
+        throw Exception(
+          'Secure connection failed for $url. Please verify your device date/time and HTTPS connectivity. Details: ${error.message}',
+        );
+      } on http.ClientException catch (error) {
         if (attempt < _maxTransientRetries) {
           await Future<void>.delayed(const Duration(seconds: 1));
           continue;
         }
-        throw Exception('Network client error. Please try again.');
+        throw Exception('Network client error for $url. Details: ${error.message}');
       }
     }
 

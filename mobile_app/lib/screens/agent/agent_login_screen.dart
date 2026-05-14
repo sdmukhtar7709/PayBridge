@@ -36,7 +36,7 @@ class _AgentLoginScreenState extends State<AgentLoginScreen> {
         lower.contains('no route to host');
 
     if (looksLikeNetworkIssue) {
-      return 'Cannot reach server. Please check your internet connection and try again. Current API_BASE_URL: ${ApiConfig.baseUrl}';
+      return 'Cannot reach server. Check internet, DNS and connectivity to ${ApiConfig.baseUrl}. Details: $message';
     }
 
     return message;
