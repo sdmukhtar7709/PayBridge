@@ -98,6 +98,104 @@ export async function listAdminAgents() {
   });
 }
 
+export async function listAdminUsers() {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      address: true,
+      city: true,
+      role: true,
+      createdAt: true,
+    },
+    orderBy: [{ createdAt: "desc" }],
+  });
+
+  return users.map((user) => {
+    const fullName = buildFullName(user.firstName, user.lastName) || user.name || "Unknown User";
+    const locationParts = [user.address, user.city].filter(Boolean).map((value) => value.trim());
+    const location = locationParts.length ? locationParts.join(", ") : "-";
+
+    return {
+      id: user.id,
+      name: fullName,
+      email: user.email ?? "-",
+      phone: user.phone ?? "-",
+      location,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
+  });
+}
+
+async function deleteUserWithRelations(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true },
+  });
+
+  if (!user) {
+    throw new AdminModerationError("User not found", 404);
+  }
+
+  if (user.role === "admin") {
+    throw new AdminModerationError("Admin users cannot be deleted", 400);
+  }
+
+  const accounts = await prisma.account.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+  const accountIds = accounts.map((account) => account.id);
+
+  await prisma.refreshToken.deleteMany({ where: { userId } });
+  await prisma.category.deleteMany({ where: { userId } });
+
+  if (accountIds.length) {
+    await prisma.transaction.deleteMany({
+      where: {
+        OR: [{ accountId: { in: accountIds } }, { toAccountId: { in: accountIds } }],
+      },
+    });
+  }
+
+  await prisma.account.deleteMany({ where: { userId } });
+
+  const agentProfile = await prisma.agentProfile.findUnique({ where: { userId } });
+  if (agentProfile) {
+    await prisma.agentTransaction.deleteMany({ where: { agentId: agentProfile.id } });
+    await prisma.agentProfile.delete({ where: { id: agentProfile.id } });
+  }
+
+  await prisma.agentTransaction.deleteMany({ where: { userId } });
+  await prisma.user.delete({ where: { id: userId } });
+
+  return { message: "User deleted", id: userId };
+}
+
+export async function deleteAdminUser(userId: string) {
+  return deleteUserWithRelations(userId);
+}
+
+export async function deleteAdminAgentByProfileId(agentProfileId: string) {
+  const agentProfile = await prisma.agentProfile.findUnique({
+    where: { id: agentProfileId },
+    select: { id: true, userId: true },
+  });
+
+  if (!agentProfile) {
+    throw new AdminModerationError("Agent not found", 404);
+  }
+
+  await prisma.agentTransaction.deleteMany({ where: { agentId: agentProfile.id } });
+  await prisma.agentProfile.delete({ where: { id: agentProfile.id } });
+  return deleteUserWithRelations(agentProfile.userId);
+}
+
 export async function updateAgentModerationGeneric(id: string, body: AdminAgentUpdateInput) {
   const agent = await getAgentOrThrow(id);
 

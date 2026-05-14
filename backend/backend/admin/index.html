@@ -28,6 +28,7 @@
       <nav class="nav-menu" aria-label="Admin sections">
         <button class="nav-item is-active" data-page="dashboard" type="button">Dashboard</button>
         <button class="nav-item" data-page="agents" type="button">Agents</button>
+        <button class="nav-item" data-page="users" type="button">Users</button>
         <button class="nav-item" data-page="transactions" type="button">Transactions</button>
         <button class="nav-item" data-page="settings" type="button">Settings</button>
       </nav>
@@ -189,6 +190,41 @@
           <h2>Selected Agent Details</h2>
           <div id="selectedAgent" class="agent-detail">
             <p>Select an agent from the table to view full details.</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="page-users" data-page="users">
+        <section class="card panel-card">
+          <div class="panel-head">
+            <div>
+              <h2>Users</h2>
+              <p>Review all users and remove accounts when needed.</p>
+            </div>
+            <div class="filters">
+              <input id="userSearch" type="text" placeholder="Search name, phone, or email" />
+              <button id="userRefreshBtn" class="btn btn-ghost" type="button">Refresh Data</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Location</th>
+                  <th>User ID</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTbody">
+                <tr>
+                  <td colspan="6" class="empty-state">Open Users tab and refresh to load records.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
       </section>

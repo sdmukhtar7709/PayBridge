@@ -9,9 +9,12 @@ import { validate } from "../middleware/validate.js";
 import { requireRole } from "../middleware/requireRole.js";
 import {
   adminBanAgent,
+  adminDeleteAgent,
+  adminDeleteUser,
   adminGetTransaction,
   adminGetReports,
   adminListAgents,
+  adminListUsers,
   adminListTransactions,
   adminUnbanAgent,
   adminUnverifyAgent,
@@ -28,6 +31,13 @@ router.get(
   requireAuth,
   requireRole(["admin"]),
   adminListAgents
+);
+
+router.get(
+  "/users",
+  requireAuth,
+  requireRole(["admin"]),
+  adminListUsers
 );
 
 router.get(
@@ -88,6 +98,20 @@ router.patch(
   requireAuth,
   requireRole(["admin"]),
   adminUnbanAgent
+);
+
+router.delete(
+  "/agents/:id",
+  requireAuth,
+  requireRole(["admin"]),
+  adminDeleteAgent
+);
+
+router.delete(
+  "/users/:id",
+  requireAuth,
+  requireRole(["admin"]),
+  adminDeleteUser
 );
 
 export default router;

@@ -3,6 +3,9 @@ document.addEventListener("DOMContentLoaded", () => {
     agents: [],
     filteredAgents: [],
     selectedAgentId: null,
+    users: [],
+    filteredUsers: [],
+    usersLoaded: false,
     transactions: [],
     filteredTransactions: [],
     transactionsLoaded: false,
@@ -50,6 +53,9 @@ document.addEventListener("DOMContentLoaded", () => {
     statusFilter: document.getElementById("statusFilter"),
     agentsTbody: document.getElementById("agentsTbody"),
     selectedAgent: document.getElementById("selectedAgent"),
+    userSearch: document.getElementById("userSearch"),
+    userRefreshBtn: document.getElementById("userRefreshBtn"),
+    usersTbody: document.getElementById("usersTbody"),
     txSearch: document.getElementById("txSearch"),
     txStatusFilter: document.getElementById("txStatusFilter"),
     txRefreshBtn: document.getElementById("txRefreshBtn"),
@@ -76,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pages: Array.from(document.querySelectorAll(".page[data-page]")),
   };
 
-  const validPages = new Set(["dashboard", "agents", "transactions", "settings"]);
+  const validPages = new Set(["dashboard", "agents", "users", "transactions", "settings"]);
 
   function normalizeApiBase(url) {
     const trimmed = (url || "").trim();
@@ -129,6 +135,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (nextPage === "transactions" && !state.transactionsLoaded) {
       fetchTransactions();
+    }
+
+    if (nextPage === "users" && !state.usersLoaded) {
+      fetchUsers();
     }
 
     if (nextPage === "dashboard") {
@@ -295,6 +305,25 @@ document.addEventListener("DOMContentLoaded", () => {
       status: normalizedStatus,
       createdAt: raw.createdAt || null,
       updatedAt: raw.updatedAt || null,
+    };
+  }
+
+  function mapUser(raw) {
+    const nameParts = [raw.firstName, raw.lastName].filter(Boolean).join(" ").trim();
+    const fullName = nameParts || raw.name || "Unknown User";
+    const locationParts = [raw.location, raw.address, raw.city]
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+      .filter((value) => value.length > 0 && value !== "-");
+
+    return {
+      id: raw.id,
+      name: fullName,
+      email: raw.email || "-",
+      phone: raw.phone || "-",
+      location: locationParts.length ? locationParts.join(", ") : "-",
+      role: raw.role || "user",
+      createdAt: raw.createdAt || null,
     };
   }
 
@@ -1109,6 +1138,8 @@ document.addEventListener("DOMContentLoaded", () => {
       actions.push({ key: "ban", label: "Ban", className: "ban" });
     }
 
+    actions.push({ key: "delete", label: "Delete", className: "ban" });
+
     const buttons = actions
       .map(
         (action) =>
@@ -1194,6 +1225,61 @@ document.addEventListener("DOMContentLoaded", () => {
     renderAgentsTable();
   }
 
+  function matchesUserFilters(user) {
+    const search = ((el.userSearch && el.userSearch.value) || "").trim().toLowerCase();
+    if (!search) {
+      return true;
+    }
+
+    const searchPool = [user.name, user.email, user.phone, user.location]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchPool.includes(search);
+  }
+
+  function renderUserRow(user) {
+    return `
+      <tr data-user-id="${safeValue(user.id)}">
+        <td>
+          <div class="agent-name">${safeValue(user.name)}</div>
+        </td>
+        <td>${safeValue(user.email)}</td>
+        <td>${safeValue(user.phone)}</td>
+        <td>${safeValue(user.location)}</td>
+        <td><span class="agent-sub">${safeValue(user.id)}</span></td>
+        <td>
+          <div class="action-wrap">
+            <button class="action-btn ban" data-user-action="delete" data-user-id="${safeValue(user.id)}" type="button">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  function renderUsersTable() {
+    if (!el.usersTbody) {
+      return;
+    }
+
+    if (!state.filteredUsers.length) {
+      el.usersTbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="empty-state">No users found for current filter/search.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    el.usersTbody.innerHTML = state.filteredUsers.map(renderUserRow).join("");
+  }
+
+  function applyUserFilters() {
+    state.filteredUsers = state.users.filter(matchesUserFilters);
+    renderUsersTable();
+  }
+
   async function fetchAgents() {
     if (!state.token) {
       redirectToLogin();
@@ -1216,6 +1302,36 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast(`Failed to load agents: ${error.message}`, "error");
     } finally {
       el.refreshBtn.disabled = false;
+    }
+  }
+
+  async function fetchUsers() {
+    if (!state.token) {
+      redirectToLogin();
+      return;
+    }
+
+    if (!el.userRefreshBtn) {
+      return;
+    }
+
+    el.userRefreshBtn.disabled = true;
+    try {
+      const result = await apiFetch("/admin/users", { method: "GET" });
+      const usersRaw = Array.isArray(result)
+        ? result
+        : Array.isArray(result && result.users)
+          ? result.users
+          : [];
+
+      state.users = usersRaw.map(mapUser);
+      state.usersLoaded = true;
+      applyUserFilters();
+      showToast("Users loaded successfully.", "ok");
+    } catch (error) {
+      showToast(`Failed to load users: ${error.message}`, "error");
+    } finally {
+      el.userRefreshBtn.disabled = false;
     }
   }
 
@@ -1413,6 +1529,61 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function deleteAgent(agent) {
+    if (!agent) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete agent ${safeValue(agent.name)}? This removes the agent and user data from the database.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    el.refreshBtn.disabled = true;
+    try {
+      await apiFetch(`/admin/agents/${agent.id}`, { method: "DELETE" });
+      state.agents = state.agents.filter((item) => item.id !== agent.id);
+      renderMetrics();
+      applyFilters();
+      showToast("Agent deleted successfully.", "ok");
+    } catch (error) {
+      showToast(`Failed to delete agent: ${error.message}`, "error");
+    } finally {
+      el.refreshBtn.disabled = false;
+    }
+  }
+
+  async function deleteUser(user) {
+    if (!user) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete user ${safeValue(user.name)}? This removes the user from the database.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    if (!el.userRefreshBtn) {
+      return;
+    }
+
+    el.userRefreshBtn.disabled = true;
+    try {
+      await apiFetch(`/admin/users/${user.id}`, { method: "DELETE" });
+      state.users = state.users.filter((item) => item.id !== user.id);
+      applyUserFilters();
+      showToast("User deleted successfully.", "ok");
+    } catch (error) {
+      showToast(`Failed to delete user: ${error.message}`, "error");
+    } finally {
+      el.userRefreshBtn.disabled = false;
+    }
+  }
+
   async function fetchHealthAndVersion() {
     updateApiBaseFromInput();
 
@@ -1488,6 +1659,10 @@ document.addEventListener("DOMContentLoaded", () => {
         runModerationAction(agentId, "unban");
       }
 
+      if (action === "delete") {
+        deleteAgent(agent);
+      }
+
       return;
     }
 
@@ -1498,6 +1673,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     state.selectedAgentId = row.dataset.rowId;
     renderAgentsTable();
+  }
+
+  function onUsersTableClick(event) {
+    const actionBtn = event.target.closest("button[data-user-action]");
+    if (!actionBtn) {
+      return;
+    }
+
+    const action = actionBtn.dataset.userAction;
+    const userId = actionBtn.dataset.userId;
+    if (action !== "delete") {
+      return;
+    }
+
+    const user = state.users.find((item) => item.id === userId);
+    deleteUser(user);
   }
 
   function bootstrap() {
@@ -1525,6 +1716,7 @@ document.addEventListener("DOMContentLoaded", () => {
     el.pendingAgents.textContent = "0";
     el.bannedAgents.textContent = "0";
     renderAgentsTable();
+    renderUsersTable();
     renderTransactionsTable();
     renderReports();
     renderTransactionTrendChart();
@@ -1541,6 +1733,15 @@ document.addEventListener("DOMContentLoaded", () => {
     el.agentSearch.addEventListener("input", applyFilters);
     el.statusFilter.addEventListener("change", applyFilters);
     el.agentsTbody.addEventListener("click", onTableClick);
+    if (el.userSearch) {
+      el.userSearch.addEventListener("input", applyUserFilters);
+    }
+    if (el.userRefreshBtn) {
+      el.userRefreshBtn.addEventListener("click", fetchUsers);
+    }
+    if (el.usersTbody) {
+      el.usersTbody.addEventListener("click", onUsersTableClick);
+    }
     if (el.txSearch) {
       el.txSearch.addEventListener("input", applyTransactionFilters);
     }
@@ -1585,6 +1786,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchHealthAndVersion();
     if (savedToken) {
       fetchAgents();
+      fetchUsers();
       fetchDashboardOverview();
       fetchTransactionTrendData();
     }

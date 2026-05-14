@@ -6,10 +6,13 @@ import {
 } from "../schemas/adminAgentSchemas.js";
 import {
   AdminModerationError,
+  deleteAdminAgentByProfileId,
+  deleteAdminUser,
   getAdminTransactionDetails,
   getAdminReports,
   listAdminTransactions,
   listAdminAgents,
+  listAdminUsers,
   moderateAgentByAction,
   updateAgentModerationGeneric,
 } from "../services/adminAgentModeration.service.js";
@@ -28,6 +31,15 @@ export async function adminListAgents(_req: Request, res: Response) {
     return res.json(agents);
   } catch (error) {
     return handleControllerError(res, error, "Failed to fetch agents");
+  }
+}
+
+export async function adminListUsers(_req: Request, res: Response) {
+  try {
+    const users = await listAdminUsers();
+    return res.json(users);
+  } catch (error) {
+    return handleControllerError(res, error, "Failed to fetch users");
   }
 }
 
@@ -119,5 +131,23 @@ export async function adminUnbanAgent(req: Request, res: Response) {
     return res.json(result);
   } catch (error) {
     return handleControllerError(res, error, "Failed to unban agent");
+  }
+}
+
+export async function adminDeleteAgent(req: Request, res: Response) {
+  try {
+    const result = await deleteAdminAgentByProfileId(req.params.id);
+    return res.json(result);
+  } catch (error) {
+    return handleControllerError(res, error, "Failed to delete agent");
+  }
+}
+
+export async function adminDeleteUser(req: Request, res: Response) {
+  try {
+    const result = await deleteAdminUser(req.params.id);
+    return res.json(result);
+  } catch (error) {
+    return handleControllerError(res, error, "Failed to delete user");
   }
 }
