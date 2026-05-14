@@ -46,8 +46,11 @@ function setStatus(target, message, type) {
 }
 
 async function postJson(path, body) {
-    const apiBase = normalizeApiBase(apiBaseInput.value);
-    apiBaseInput.value = apiBase;
+    const savedApiBase = localStorage.getItem('cashio_admin_api_base');
+    const apiBase = normalizeApiBase(apiBaseInput ? apiBaseInput.value : savedApiBase);
+    if (apiBaseInput) {
+        apiBaseInput.value = apiBase;
+    }
     localStorage.setItem('cashio_admin_api_base', apiBase);
 
     const response = await fetch(`${apiBase}${path}`, {
@@ -202,4 +205,8 @@ if (registerForm) {
 }
 
 const savedApiBase = localStorage.getItem('cashio_admin_api_base');
-apiBaseInput.value = normalizeApiBase(savedApiBase || apiBaseInput.value);
+if (apiBaseInput) {
+    apiBaseInput.value = normalizeApiBase(savedApiBase || apiBaseInput.value);
+} else if (savedApiBase) {
+    localStorage.setItem('cashio_admin_api_base', normalizeApiBase(savedApiBase));
+}
