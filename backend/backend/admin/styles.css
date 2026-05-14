@@ -778,6 +778,22 @@ tbody tr.active-row {
   overflow: auto;
 }
 
+.confirm-modal .modal-panel {
+  width: min(520px, calc(100% - 24px));
+}
+
+.confirm-message {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(234, 242, 255, 0.92);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .modal-head {
   position: sticky;
   top: 0;

@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
     users: [],
     filteredUsers: [],
     usersLoaded: false,
+    pendingDelete: null,
     transactions: [],
     filteredTransactions: [],
     transactionsLoaded: false,
@@ -55,7 +56,13 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedAgent: document.getElementById("selectedAgent"),
     userSearch: document.getElementById("userSearch"),
     userRefreshBtn: document.getElementById("userRefreshBtn"),
+    userExportBtn: document.getElementById("userExportBtn"),
     usersTbody: document.getElementById("usersTbody"),
+    confirmDeleteModal: document.getElementById("confirmDeleteModal"),
+    confirmDeleteMessage: document.getElementById("confirmDeleteMessage"),
+    confirmDeleteConfirm: document.getElementById("confirmDeleteConfirm"),
+    confirmDeleteCancel: document.getElementById("confirmDeleteCancel"),
+    confirmDeleteClose: document.getElementById("confirmDeleteClose"),
     txSearch: document.getElementById("txSearch"),
     txStatusFilter: document.getElementById("txStatusFilter"),
     txRefreshBtn: document.getElementById("txRefreshBtn"),
@@ -110,6 +117,27 @@ document.addEventListener("DOMContentLoaded", () => {
     state.toastTimer = window.setTimeout(() => {
       el.toast.classList.remove("show");
     }, 2400);
+  }
+
+  function openConfirmDelete(message, payload) {
+    if (!el.confirmDeleteModal || !el.confirmDeleteMessage) {
+      return;
+    }
+
+    state.pendingDelete = payload;
+    el.confirmDeleteMessage.textContent = message;
+    el.confirmDeleteModal.classList.add("open");
+    el.confirmDeleteModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeConfirmDelete() {
+    if (!el.confirmDeleteModal) {
+      return;
+    }
+
+    state.pendingDelete = null;
+    el.confirmDeleteModal.classList.remove("open");
+    el.confirmDeleteModal.setAttribute("aria-hidden", "true");
   }
 
   function resolvePage(input) {
@@ -1280,6 +1308,33 @@ document.addEventListener("DOMContentLoaded", () => {
     renderUsersTable();
   }
 
+  function csvEscape(value) {
+    const text = value === null || value === undefined ? "" : String(value);
+    if (text.includes("\"") || text.includes(",") || text.includes("\n")) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+  }
+
+  function exportUsersCsv() {
+    const rows = state.filteredUsers.length ? state.filteredUsers : state.users;
+    const header = ["Name", "Email", "Phone", "Location", "User ID"].join(",");
+    const lines = rows.map((user) =>
+      [user.name, user.email, user.phone, user.location, user.id].map(csvEscape).join(",")
+    );
+
+    const csv = [header, ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cashlyt-users-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   async function fetchAgents() {
     if (!state.token) {
       redirectToLogin();
@@ -1529,22 +1584,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function deleteAgent(agent) {
+  function deleteAgent(agent) {
     if (!agent) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete agent ${safeValue(agent.name)}? This removes the agent and user data from the database.`
+    openConfirmDelete(
+      `Delete agent ${safeValue(agent.name)}? This removes the agent and user data from the database.`,
+      { type: "agent", id: agent.id }
     );
-    if (!confirmed) {
-      return;
-    }
+  }
 
+  async function deleteAgentConfirmed(agentId) {
     el.refreshBtn.disabled = true;
     try {
-      await apiFetch(`/admin/agents/${agent.id}`, { method: "DELETE" });
-      state.agents = state.agents.filter((item) => item.id !== agent.id);
+      await apiFetch(`/admin/agents/${agentId}`, { method: "DELETE" });
+      state.agents = state.agents.filter((item) => item.id !== agentId);
       renderMetrics();
       applyFilters();
       showToast("Agent deleted successfully.", "ok");
@@ -1555,26 +1610,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function deleteUser(user) {
+  function deleteUser(user) {
     if (!user) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete user ${safeValue(user.name)}? This removes the user from the database.`
+    openConfirmDelete(
+      `Delete user ${safeValue(user.name)}? This removes the user from the database.`,
+      { type: "user", id: user.id }
     );
-    if (!confirmed) {
-      return;
-    }
+  }
 
+  async function deleteUserConfirmed(userId) {
     if (!el.userRefreshBtn) {
       return;
     }
 
     el.userRefreshBtn.disabled = true;
     try {
-      await apiFetch(`/admin/users/${user.id}`, { method: "DELETE" });
-      state.users = state.users.filter((item) => item.id !== user.id);
+      await apiFetch(`/admin/users/${userId}`, { method: "DELETE" });
+      state.users = state.users.filter((item) => item.id !== userId);
       applyUserFilters();
       showToast("User deleted successfully.", "ok");
     } catch (error) {
@@ -1691,6 +1746,24 @@ document.addEventListener("DOMContentLoaded", () => {
     deleteUser(user);
   }
 
+  async function confirmDeleteAction() {
+    if (!state.pendingDelete) {
+      return;
+    }
+
+    const { type, id } = state.pendingDelete;
+    closeConfirmDelete();
+
+    if (type === "agent") {
+      await deleteAgentConfirmed(id);
+      return;
+    }
+
+    if (type === "user") {
+      await deleteUserConfirmed(id);
+    }
+  }
+
   function bootstrap() {
     const savedApiBase = localStorage.getItem("cashio_admin_api_base");
     el.apiBaseUrl.value = normalizeApiBase(savedApiBase || el.apiBaseUrl.value);
@@ -1739,6 +1812,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (el.userRefreshBtn) {
       el.userRefreshBtn.addEventListener("click", fetchUsers);
     }
+    if (el.userExportBtn) {
+      el.userExportBtn.addEventListener("click", exportUsersCsv);
+    }
     if (el.usersTbody) {
       el.usersTbody.addEventListener("click", onUsersTableClick);
     }
@@ -1765,6 +1841,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (target.dataset && target.dataset.closeModal === "true") {
           closeTxDetailModal();
+        }
+      });
+    }
+    if (el.confirmDeleteConfirm) {
+      el.confirmDeleteConfirm.addEventListener("click", confirmDeleteAction);
+    }
+    if (el.confirmDeleteCancel) {
+      el.confirmDeleteCancel.addEventListener("click", closeConfirmDelete);
+    }
+    if (el.confirmDeleteClose) {
+      el.confirmDeleteClose.addEventListener("click", closeConfirmDelete);
+    }
+    if (el.confirmDeleteModal) {
+      el.confirmDeleteModal.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        if (target.dataset && target.dataset.closeConfirm === "true") {
+          closeConfirmDelete();
         }
       });
     }
